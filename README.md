@@ -44,7 +44,28 @@ eval_rai.py                      计算 RAI 指标
 
 论文中 Pascal Series 使用 Pascal VOC 与若干风格域数据，Diverse Weather Series 使用不同天气域数据。
 
-为了课程复现，建议先从 Pascal VOC 风格实验开始：
+为了课程复现，建议先从 Pascal VOC 真实数据开始。自动下载并转换：
+
+```powershell
+python -m duet_repro.data.prepare_voc_duet --root E:/project/Incremental_Learning/data/voc_duet --copy-images
+```
+
+这会下载 VOC2007 trainval/test 和 VOC2012 trainval，并生成 4 个 5-class 类增量任务：
+
+```text
+task_1: aeroplane, bicycle, bird, boat, bottle
+task_2: bus, car, cat, chair, cow
+task_3: diningtable, dog, horse, motorbike, person
+task_4: pottedplant, sheep, sofa, train, tvmonitor
+```
+
+然后运行真实 VOC 实验：
+
+```powershell
+python train_ultralytics_duet.py --config configs/voc_real_yolo.yaml
+```
+
+如果想使用自己的 YOLO 格式数据：
 
 1. 准备 YOLO 格式数据集。
 2. 每个图像对应一个 `.txt` 标签文件。
@@ -112,4 +133,3 @@ python eval_rai.py --metrics outputs/pascal_metrics.json
 4. 加入 DuET task-vector merge。
 5. 对比 Avg RI、Avg GI、RAI。
 6. 如有余力，再加入 Diverse Weather 或跨域任务。
-
