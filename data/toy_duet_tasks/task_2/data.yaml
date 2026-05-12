@@ -1,0 +1,6 @@
+path: E:/project/Incremental_Learning/data/toy_duet_tasks/task_2
+train: images/train
+val: images/val
+names:
+  0: red_box
+  1: blue_box

@@ -1,0 +1,29 @@
+experiment:
+  name: smoke_duet_yolo11n
+  output_dir: outputs/smoke_duet_yolo11n
+  seed: 42
+detector:
+  base_weights: yolo11n.pt
+  total_classes: 2
+training:
+  epochs: 1
+  imgsz: 128
+  batch: 2
+  workers: 0
+  device: 0
+  optimizer: auto
+  lr0: 0.01
+duet:
+  enabled: true
+  alpha_old: 1.0
+  alpha_new: 1.0
+  shared_key_exclude:
+  - detect
+  - dfl
+  - cv2
+  - cv3
+tasks:
+- name: toy_red
+  data: E:/project/Incremental_Learning/data/toy_duet_tasks/task_1/data.yaml
+- name: toy_blue
+  data: E:/project/Incremental_Learning/data/toy_duet_tasks/task_2/data.yaml

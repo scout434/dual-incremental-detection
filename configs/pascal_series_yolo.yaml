@@ -1,0 +1,39 @@
+experiment:
+  name: pascal_series_duet_yolo11n
+  output_dir: outputs/pascal_series_duet_yolo11n
+  seed: 42
+
+detector:
+  # 可以替换为 yolo11s.pt / yolo11m.pt。第一次运行会由 ultralytics 下载权重。
+  base_weights: yolo11n.pt
+  total_classes: 20
+
+training:
+  epochs: 50
+  imgsz: 640
+  batch: 16
+  workers: 4
+  device: 0
+  optimizer: auto
+  lr0: 0.01
+
+duet:
+  enabled: true
+  alpha_old: 1.0
+  alpha_new: 1.0
+  shared_key_exclude:
+    - detect
+    - dfl
+    - cv2
+    - cv3
+
+tasks:
+  - name: task1_base
+    data: E:/datasets/duet_pascal_tasks/task_1/data.yaml
+  - name: task2_inc
+    data: E:/datasets/duet_pascal_tasks/task_2/data.yaml
+  - name: task3_inc
+    data: E:/datasets/duet_pascal_tasks/task_3/data.yaml
+  - name: task4_inc
+    data: E:/datasets/duet_pascal_tasks/task_4/data.yaml
+
