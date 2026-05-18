@@ -1,0 +1,20 @@
+﻿# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local datasets and large artifacts
+data.zip
+data/
+outputs/
+runs/
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Local IDE / OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
