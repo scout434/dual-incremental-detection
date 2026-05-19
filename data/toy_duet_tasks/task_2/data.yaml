@@ -1,6 +1,41 @@
-path: E:/project/Incremental_Learning/data/toy_duet_tasks/task_2
+# ============================================================
+# DuET 烟雾测试 - 任务 2 数据集配置文件
+#
+# 数据集说明：
+#   本数据集是 DuET 烟雾测试中使用的人工玩具数据集 Task 2。
+#   包含红色盒子和蓝色盒子两种类别，用于快速验证训练流程。
+#
+#   注意：由于 make_yolo_subsets.py 使用 --remap 参数，
+#   所有类别的 ID 都被重映射为从 0 开始。
+#
+# 目录结构（由 make_yolo_subsets.py 自动生成）：
+#   data/toy_duet_tasks/task_2/
+#   ├── data.yaml         # 本文件
+#   ├── images/
+#   │   ├── train/        # 训练集图像
+#   │   └── val/          # 验证集图像
+#   └── labels/
+#       ├── train/        # 训练集标签（YOLO 格式）
+#       └── val/          # 验证集标签
+#
+# 使用方法：
+#   Ultralytics YOLO 在训练时会自动读取此文件来定位数据集。
+# ============================================================
+
+# 数据集根目录的绝对路径
+# 所有后续路径（train、val）都相对于此路径
+path: F:/dual-incremental-detection-master/data/toy_duet_tasks/task_2
+
+# 训练集图像目录（相对于 path）
 train: images/train
+
+# 验证集图像目录（相对于 path）
 val: images/val
+
+# 类别名称映射：类别 ID -> 类别名称
+# 注意：这里的类别 ID 已经过重映射（0, 1 而非原始的 VOC 类别 ID）
 names:
-  0: red_box
-  1: blue_box
+  0: red_box    # 红色盒子
+  1: blue_box   # 蓝色盒子
+  2: red1_box    # 红色盒子
+  3: blue2_box   # 蓝色盒子
