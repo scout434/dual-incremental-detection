@@ -5,6 +5,7 @@ __pycache__/
 
 # Local datasets and large artifacts
 data.zip
+data/
 outputs/
 runs/
 *.pt
