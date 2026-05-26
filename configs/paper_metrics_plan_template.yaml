@@ -1,0 +1,64 @@
+# DuET 论文指标评估计划。
+#
+# 这个模板对应 Pascal 系列的两阶段实验：
+#   VOC [1:10] -> Clipart [11:20]
+#
+# 运行前，你需要把下面所有 data 路径替换成对应评估切片的 YOLO data.yaml。
+# 对于 GI 的 denominator，你可以直接在 value 里填入参考模型 mAP，
+# 也可以改成 checkpoint + data，让脚本自动评估单独训练的参考模型。
+
+manifest: outputs/train_new1_duet_yolo11n/eval_manifest.json
+output: outputs/train_new1_duet_yolo11n/paper_metrics_results.json
+device: 0
+metric: map50
+split: val
+
+# 论文公式没有把 RI/GI 强行截断到 1.0。
+# 只有当你想沿用 eval_rai.py 里较早的实现习惯时，才把这里改成 true。
+clamp_to_one: false
+
+# 可选权重别名。脚本会从 eval_manifest.json 自动生成以下内置别名：
+#   t1, task_1, task1_VOC, t1_trained
+#   t2, task_2, task2_clipart, t2_trained
+#   final, latest, reference
+checkpoint_aliases: {}
+
+retention:
+  # 最终任务完成后，旧任务 VOC [1:10] 的 RI：
+  #   mAP_T2_old(VOC[1:10]) / mAP_T1_new(VOC[1:10])
+  - name: RI_VOC_1_10_final
+    numerator:
+      checkpoint: final
+      data: E:/datasets/eval_slices/voc_1_10/data.yaml
+    denominator:
+      checkpoint: t1
+      data: E:/datasets/eval_slices/voc_1_10/data.yaml
+
+generalization:
+  # T2 阶段在未见类别 VOC [11:20] 上的 GI：
+  #   mAP_T2_unseen(VOC[11:20]) / mAP_ref(VOC[11:20])
+  - name: GI_VOC_11_20_at_T2
+    numerator:
+      checkpoint: final
+      data: E:/datasets/eval_slices/voc_11_20/data.yaml
+    denominator:
+      # 把 null 替换成“只在 VOC [11:20] 上训练的参考模型”的 mAP；
+      # 或者把这里改成 checkpoint + data，让脚本自动评估那个参考模型。
+      value: null
+
+  # T2 阶段在未见域/未见类别 Clipart [1:10] 上的 GI：
+  #   mAP_T2_unseen(Clipart[1:10]) / mAP_ref(Clipart[1:10])
+  - name: GI_Clipart_1_10_at_T2
+    numerator:
+      checkpoint: final
+      data: E:/datasets/eval_slices/clipart_1_10/data.yaml
+    denominator:
+      value: null
+
+# 如果要跑 Pascal 四阶段实验，也按同样模式填写：
+# retention:
+#   - 最终模型在 Watercolor[1:3] 上的 mAP / T1 在 Watercolor[1:3] 上的 mAP
+#   - 最终模型在 Comic[4:6] 上的 mAP / T2 在 Comic[4:6] 上的 mAP
+#   - 最终模型在 Clipart[7:13] 上的 mAP / T3 在 Clipart[7:13] 上的 mAP
+# generalization:
+#   - 每个 Table S1 unseen 切片的 mAP / 对应单独训练参考模型的 mAP

@@ -1,0 +1,23 @@
+name: duet-repro
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch>=2.2
+  - torchvision
+  - pytorch-cuda=12.1
+  - numpy
+  - pyyaml
+  - tqdm
+  - pillow
+  - pip:
+      - ultralytics>=8.3.0
+      - opencv-python
+      - pandas
+      - matplotlib
+      - rich
+

@@ -1,0 +1,48 @@
+# DuET 论文 Pascal 两阶段实验指标配置。
+#
+# 使用前需要先完成：
+#   1. 数据切片：prepare_pascal_2phase_slices.yaml
+#   2. 主训练：train_pascal_2phase_full.yaml
+#   3. 两个 GI 参考模型训练：
+#      train_reference_voc_11_20.yaml
+#      train_reference_clipart_1_10.yaml
+
+manifest: outputs/pascal_2phase_duet_yolo11n/eval_manifest.json
+output: outputs/pascal_2phase_duet_yolo11n/paper_metrics_results.json
+device: 0
+metric: map50
+split: val
+clamp_to_one: false
+
+checkpoint_aliases:
+  ref_voc_11_20: outputs/reference_voc_11_20_yolo11n/task_1_reference_voc_11_20_best.pt
+  ref_clipart_1_10: outputs/reference_clipart_1_10_yolo11n/task_1_reference_clipart_1_10_best.pt
+
+retention:
+  # RI：最终模型在旧任务 VOC [1:10] 上的 mAP / T1 首次学完 VOC [1:10] 的 mAP
+  - name: RI_VOC_1_10_final
+    numerator:
+      checkpoint: final
+      data: /root/autodl-tmp/test_tasks/task_1/data.yaml
+    denominator:
+      checkpoint: t1
+      data: /root/autodl-tmp/test_tasks/task_1/data.yaml
+
+generalization:
+  # GI：最终模型在未见 VOC [11:20] 上的 mAP / 单独训练 VOC [11:20] 参考模型的 mAP
+  - name: GI_VOC_11_20_at_T2
+    numerator:
+      checkpoint: final
+      data: /root/autodl-tmp/test_tasks/task_2/data.yaml
+    denominator:
+      checkpoint: ref_voc_11_20
+      data: /root/autodl-tmp/test_tasks/task_2/data.yaml
+
+  # GI：最终模型在未见 Clipart [1:10] 上的 mAP / 单独训练 Clipart [1:10] 参考模型的 mAP
+  - name: GI_Clipart_1_10_at_T2
+    numerator:
+      checkpoint: final
+      data: /root/autodl-tmp/test_tasks/task_3/data.yaml
+    denominator:
+      checkpoint: ref_clipart_1_10
+      data: /root/autodl-tmp/test_tasks/task_3/data.yaml

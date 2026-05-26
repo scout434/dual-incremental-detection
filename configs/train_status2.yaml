@@ -1,0 +1,149 @@
+experiment:
+  # 本次实验名称和输出目录；训练产物会写到 output_dir 下。
+  name: train_new1_duet_yolo11n
+  output_dir: outputs/train_new1_duet_yolo11n
+  seed: 42
+
+detector:
+  # base_weights 提供预训练 backbone/neck；检测头不会直接拷贝。
+  base_weights: yolo11n.pt
+  # model_yaml 用来新建“全量 20 类检测头”的模型结构。
+  model_yaml: yolo11n.yaml
+  # 固定全局类别数。这里复刻 train_new1.py 的 20 类全量输出头。
+  total_classes: 20
+  # 全局类别名表。class_indices 中的下标必须对应这里的下标。
+  names:
+    0: bicycle
+    1: bird
+    2: car
+    3: cat
+    4: dog
+    5: person
+    6: aeroplane
+    7: boat
+    8: bottle
+    9: bus
+    10: chair
+    11: cow
+    12: diningtable
+    13: horse
+    14: motorbike
+    15: pottedplant
+    16: sheep
+    17: sofa
+    18: train
+    19: tvmonitor
+training:
+  # 以下训练超参基本继承 train_new1.py。
+  epochs: 30
+  warmup_epochs: 5
+  imgsz: 640
+  batch: 64
+  workers: 0
+  device: 0
+  optimizer: AdamW
+  cos_lr: true
+  lr0: 0.01
+  lrf: 0.01
+  freeze: 0
+  # 第一阶段和后续增量阶段使用不同 weight_decay。
+  weight_decay_first: 0.0005
+  weight_decay_incremental: 0.001
+
+duet:
+  # 是否启用 DuET 合并。第一阶段总是直接保存，第二阶段开始生效。
+  enabled: true
+  # true 表示使用 duet_module.py 中的逐层动态 alpha/beta 融合。
+  use_duet_module: true
+  # 对齐 train_new1.py 中的 ALPHA_BASE/GAMMA。
+  gamma: 0.1
+  alpha_base: 0.5
+  # 对齐 train_new1.py 中声明的 LAMBDA_DISTILL/LAMBDA_DC，并真正接入训练 loss。
+  distill_weight: 0.01
+  dc_weight: 0.01
+  distill_temperature: 2.0
+  # 这些 key 不参与共享参数 task vector 融合，检测头会单独按 class_indices 切片保留。
+  shared_key_exclude:
+    - dfl
+    - cv2
+    - cv3
+  verbose_merge: false
+
+# ============================================================================
+# 【最常改的地方：tasks】
+#
+# 这个脚本的方法固定为：
+#   T1 训练 -> 保存 T1
+#   T2 从 T1 merged 继续训练 -> 接 DuET 蒸馏/DC loss -> DuET merge
+#   T3/T4 同理
+#
+# 你跑不同论文场景时，通常只改下面三项：
+#   1. name           当前阶段的名字，会影响输出目录和 checkpoint 文件名
+#   2. data           当前阶段的 YOLO data.yaml 路径
+#   3. class_indices  当前阶段类别在上面 20 类全局 names 中的下标
+#   4. labels_are_global  标签编号模式；auto 会自动判断，一般不用改
+#
+# 注意：
+#   - class_indices 必须和 detector.names 的全局类别顺序一致。
+#   - 如果 data.yaml 里 names 的数量等于当前任务类别数，脚本会按类别名自动核对并修正 class_indices。
+#   - 如果一个任务包含 bicycle,bird,car，就写 [0, 1, 2]。
+#   - 如果一个任务包含 cat,dog,person，就写 [3, 4, 5]。
+#   - 检测头切片保留就是靠这个字段完成的。
+#   - labels_are_global: auto 表示脚本会判断原始标签是局部编号还是全局编号；
+#     如果你的标签本来就是全局 20 类编号，也可以显式写 true。
+# ============================================================================
+
+tasks:
+  # ==========================================================================
+  # 【论文场景一示例】
+  # 适合你 train_new1.py 当前这组顺序：
+  #   T1: Watercolor 1-3
+  #   T2: Comic/Clipart 4-6
+  #   T3: Clipart 7-13
+  #   T4: VOC 14-20
+  #
+  # 要跑完整四阶段，就把下面 T3/T4 的注释取消，并把 data 改成你的真实路径。
+  # ==========================================================================
+  - name: task1_VOC
+    data: E:/datasets/test_tasks/task_1/data.yaml
+    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    labels_are_global: auto
+
+  - name: task2_clipart
+    data: E:/datasets/test_tasks/task_3/data.yaml
+    class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    labels_are_global: auto
+
+  # - name: task3_clipart
+  #   data: E:/datasets/test_tasks/task_3_clipart_7_13/data.yaml
+  #   class_indices: [6, 7, 8, 9, 10, 11, 12]
+  #   labels_are_global: auto
+
+  # - name: task4_voc
+  #   data: E:/datasets/test_tasks/task_4_voc_14_20/data.yaml
+  #   class_indices: [13, 14, 15, 16, 17, 18, 19]
+  #   labels_are_global: auto
+
+  # ==========================================================================
+  # 【论文场景二怎么改】
+  #
+  # 如果第二个场景仍然使用同一套 20 类全局 names，只是域/天气/风格变了：
+  #   - 不需要改 detector.names
+  #   - 只需要把上面的 data 换成场景二每个阶段的数据 yaml
+  #   - class_indices 按每阶段实际类别填写
+  #
+  # 如果第二个场景的类别集合和顺序不同：
+  #   - 先改 detector.total_classes
+  #   - 再改 detector.names
+  #   - 最后改每个 task 的 class_indices
+  #
+  # 示例模板，使用时复制到 tasks 下并替换路径：
+  #
+  # - name: weather_task1
+  #   data: E:/datasets/weather_tasks/task_1/data.yaml
+  #   class_indices: [0, 1, 2]
+  #
+  # - name: weather_task2
+  #   data: E:/datasets/weather_tasks/task_2/data.yaml
+  #   class_indices: [3, 4, 5]
+  # ==========================================================================
