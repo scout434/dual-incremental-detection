@@ -42,9 +42,9 @@ duet:
   dc_weight: 0.0
   distill_temperature: 2.0
   shared_key_exclude:
-    - dfl
-    - cv2
-    - cv3
+    - model.23.dfl
+    - model.23.cv2
+    - model.23.cv3
   verbose_merge: false
 
 tasks:
@@ -52,4 +52,4 @@ tasks:
   - name: reference_daytime_sunny_5_7
     data: /root/autodl-tmp/test_tasks/status3/daytime_sunny_5_7/data.yaml
     class_indices: [4, 5, 6]
-    labels_are_global: auto
+    labels_are_global: false

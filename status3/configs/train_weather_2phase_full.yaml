@@ -46,9 +46,9 @@ duet:
   dc_weight: 0.01
   distill_temperature: 2.0
   shared_key_exclude:
-    - dfl
-    - cv2
-    - cv3
+    - model.23.dfl
+    - model.23.cv2
+    - model.23.cv3
   verbose_merge: false
 
 tasks:
@@ -57,11 +57,11 @@ tasks:
   - name: daytime_sunny_1_4
     data: /root/autodl-tmp/test_tasks/status3/daytime_sunny_1_4/data.yaml
     class_indices: [0, 1, 2, 3]
-    labels_are_global: auto
+    labels_are_global: false
 
   # T2：Night Sunny [5:7]
   # TODO：把 data 改成你服务器上 Night Sunny 5-7 切片的真实 data.yaml。
   - name: night_sunny_5_7
     data: /root/autodl-tmp/test_tasks/status3/night_sunny_5_7/data.yaml
     class_indices: [4, 5, 6]
-    labels_are_global: auto
+    labels_are_global: false
