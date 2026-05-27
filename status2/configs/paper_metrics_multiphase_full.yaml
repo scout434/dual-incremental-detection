@@ -25,129 +25,103 @@ checkpoint_aliases:
   ref_voc_1_13: outputs/status2_reference_voc_1_13_yolo11n/task_1_reference_voc_1_13_best.pt
 
 retention:
-  # T2 之后回测旧任务 Watercolor [1:3]。
-  - name: RI_T2_Watercolor_1_3
-    numerator:
-      checkpoint: t2
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_1_3/data.yaml
-    denominator:
-      checkpoint: t1
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_1_3/data.yaml
-
-  # T3 之后回测旧任务 Watercolor [1:3] 和 Comic [4:6]。
-  - name: RI_T3_Watercolor_1_3
-    numerator:
-      checkpoint: t3
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_1_3/data.yaml
-    denominator:
-      checkpoint: t1
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_1_3/data.yaml
-
-  - name: RI_T3_Comic_4_6
-    numerator:
-      checkpoint: t3
-      data: /root/autodl-tmp/test_tasks/status2/comic_4_6/data.yaml
-    denominator:
-      checkpoint: t2
-      data: /root/autodl-tmp/test_tasks/status2/comic_4_6/data.yaml
-
   # T4 最终模型回测所有旧任务。
   - name: RI_T4_Watercolor_1_3
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_multiphase_duet_yolo11n/prepared_data/watercolor_1_3/data.yaml
     denominator:
       checkpoint: t1
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_multiphase_duet_yolo11n/prepared_data/watercolor_1_3/data.yaml
 
   - name: RI_T4_Comic_4_6
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/comic_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_multiphase_duet_yolo11n/prepared_data/comic_4_6/data.yaml
     denominator:
       checkpoint: t2
-      data: /root/autodl-tmp/test_tasks/status2/comic_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_multiphase_duet_yolo11n/prepared_data/comic_4_6/data.yaml
 
   - name: RI_T4_Clipart_7_13
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/clipart_7_13/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_multiphase_duet_yolo11n/prepared_data/clipart_7_13/data.yaml
     denominator:
       checkpoint: t3
-      data: /root/autodl-tmp/test_tasks/status2/clipart_7_13/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_multiphase_duet_yolo11n/prepared_data/clipart_7_13/data.yaml
 
 generalization:
   # T2 未见任务：Watercolor [4:6]、Comic [1:3]。
   - name: GI_T2_Watercolor_4_6
     numerator:
       checkpoint: t2
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_watercolor_4_6_yolo11n/prepared_data/reference_watercolor_4_6/data.yaml
     denominator:
       checkpoint: ref_watercolor_4_6
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_watercolor_4_6_yolo11n/prepared_data/reference_watercolor_4_6/data.yaml
 
   - name: GI_T2_Comic_1_3
     numerator:
       checkpoint: t2
-      data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_comic_1_3_yolo11n/prepared_data/reference_comic_1_3/data.yaml
     denominator:
       checkpoint: ref_comic_1_3
-      data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_comic_1_3_yolo11n/prepared_data/reference_comic_1_3/data.yaml
 
   # T3 未见任务：Watercolor [4:6]、Comic [1:3]、Clipart [1:6]。
   - name: GI_T3_Watercolor_4_6
     numerator:
       checkpoint: t3
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_watercolor_4_6_yolo11n/prepared_data/reference_watercolor_4_6/data.yaml
     denominator:
       checkpoint: ref_watercolor_4_6
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_watercolor_4_6_yolo11n/prepared_data/reference_watercolor_4_6/data.yaml
 
   - name: GI_T3_Comic_1_3
     numerator:
       checkpoint: t3
-      data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_comic_1_3_yolo11n/prepared_data/reference_comic_1_3/data.yaml
     denominator:
       checkpoint: ref_comic_1_3
-      data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_comic_1_3_yolo11n/prepared_data/reference_comic_1_3/data.yaml
 
   - name: GI_T3_Clipart_1_6
     numerator:
       checkpoint: t3
-      data: /root/autodl-tmp/test_tasks/status2/clipart_1_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_clipart_1_6_yolo11n/prepared_data/reference_clipart_1_6/data.yaml
     denominator:
       checkpoint: ref_clipart_1_6
-      data: /root/autodl-tmp/test_tasks/status2/clipart_1_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_clipart_1_6_yolo11n/prepared_data/reference_clipart_1_6/data.yaml
 
   # T4 未见任务：Watercolor [4:6]、Comic [1:3]、Clipart [1:6]、VOC [1:13]。
   - name: GI_T4_Watercolor_4_6
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_watercolor_4_6_yolo11n/prepared_data/reference_watercolor_4_6/data.yaml
     denominator:
       checkpoint: ref_watercolor_4_6
-      data: /root/autodl-tmp/test_tasks/status2/watercolor_4_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_watercolor_4_6_yolo11n/prepared_data/reference_watercolor_4_6/data.yaml
 
   - name: GI_T4_Comic_1_3
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_comic_1_3_yolo11n/prepared_data/reference_comic_1_3/data.yaml
     denominator:
       checkpoint: ref_comic_1_3
-      data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_comic_1_3_yolo11n/prepared_data/reference_comic_1_3/data.yaml
 
   - name: GI_T4_Clipart_1_6
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/clipart_1_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_clipart_1_6_yolo11n/prepared_data/reference_clipart_1_6/data.yaml
     denominator:
       checkpoint: ref_clipart_1_6
-      data: /root/autodl-tmp/test_tasks/status2/clipart_1_6/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_clipart_1_6_yolo11n/prepared_data/reference_clipart_1_6/data.yaml
 
   - name: GI_T4_VOC_1_13
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status2/voc_1_13/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_voc_1_13_yolo11n/prepared_data/reference_voc_1_13/data.yaml
     denominator:
       checkpoint: ref_voc_1_13
-      data: /root/autodl-tmp/test_tasks/status2/voc_1_13/data.yaml
+      data: /root/autodl-tmp/dual/dual_incremental_detection_master/outputs/status2_reference_voc_1_13_yolo11n/prepared_data/reference_voc_1_13/data.yaml

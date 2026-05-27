@@ -16,6 +16,7 @@ DuET 论文指标评估脚本。
 import argparse
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,176 @@ if not (PROJECT_ROOT / "duet_repro").exists():
     PROJECT_ROOT = PROJECT_ROOT.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+
+IMAGE_SUFFIXES = {".bmp", ".dng", ".jpeg", ".jpg", ".mpo", ".png", ".tif", ".tiff", ".webp"}
+EVAL_DATA_CACHE: dict[str, Path] = {}
+
+
+def resolve_data_yaml_path(data_yaml: str | Path) -> Path:
+    """Resolve a data.yaml path using cwd, status dir, and project root."""
+    path = Path(data_yaml)
+    if path.is_absolute():
+        return path
+    for base in (Path.cwd(), SCRIPT_DIR, PROJECT_ROOT):
+        candidate = base / path
+        if candidate.exists():
+            return candidate.resolve()
+    return (PROJECT_ROOT / path).resolve()
+
+
+def resolve_dataset_root(data_yaml: Path, cfg: dict[str, Any]) -> Path:
+    """Resolve the YOLO dataset root."""
+    root = Path(cfg.get("path", data_yaml.parent))
+    if not root.is_absolute():
+        root = data_yaml.parent / root
+    return root.resolve()
+
+
+def resolve_split_sources(data_yaml: Path, cfg: dict[str, Any], split: str) -> list[Path]:
+    """Resolve train/val/test entries to paths."""
+    value = cfg.get(split)
+    if value is None:
+        return []
+    values = value if isinstance(value, list) else [value]
+    root = resolve_dataset_root(data_yaml, cfg)
+    sources = []
+    for item in values:
+        source = Path(str(item))
+        if not source.is_absolute():
+            source = root / source
+        sources.append(source.resolve())
+    return sources
+
+
+def iter_images(source: Path) -> list[tuple[Path, Path]]:
+    """Return image path and relative path for a directory or txt image list."""
+    if source.is_dir():
+        images = [path for path in source.rglob("*") if path.suffix.lower() in IMAGE_SUFFIXES]
+        return [(path.resolve(), path.relative_to(source)) for path in sorted(images)]
+    if source.is_file():
+        records = []
+        for index, line in enumerate(source.read_text(encoding="utf-8").splitlines()):
+            raw = line.strip()
+            if not raw:
+                continue
+            image_path = Path(raw)
+            if not image_path.is_absolute():
+                image_path = source.parent / image_path
+            records.append((image_path.resolve(), Path(f"{index:08d}_{image_path.name}")))
+        return records
+    return []
+
+
+def infer_label_path(image_path: Path) -> Path:
+    """Infer YOLO label path from an image path."""
+    parts = list(image_path.parts)
+    for index in range(len(parts) - 1, -1, -1):
+        if parts[index].lower() == "images":
+            parts[index] = "labels"
+            return Path(*parts).with_suffix(".txt")
+    return image_path.with_suffix(".txt")
+
+
+def link_or_copy_image(src: Path, dst: Path) -> None:
+    """Reuse images with symlinks when possible, copy otherwise."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists() or dst.is_symlink():
+        return
+    try:
+        os.symlink(src, dst)
+    except OSError:
+        shutil.copy2(src, dst)
+
+
+def remap_local_label_to_global(src: Path, dst: Path, global_indices: list[int]) -> None:
+    """Write a label file whose local class ids are mapped to global class ids."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if not src.exists():
+        dst.write_text("", encoding="utf-8")
+        return
+    lines = []
+    for line_number, line in enumerate(src.read_text(encoding="utf-8").splitlines(), start=1):
+        parts = line.strip().split()
+        if not parts:
+            continue
+        local_id = int(float(parts[0]))
+        if local_id < 0 or local_id >= len(global_indices):
+            raise ValueError(f"标签 {src}:{line_number} 的局部类别 {local_id} 超出 global_class_indices")
+        parts[0] = str(int(global_indices[local_id]))
+        lines.append(" ".join(parts))
+    dst.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def prepare_eval_data(data_yaml: str | Path) -> Path:
+    """
+    Convert local-label eval datasets to a temporary global-label dataset.
+
+    Training configs use local labels plus class_indices, but YOLO.val does not know
+    that mapping. If data.yaml declares global_class_indices, create an eval copy
+    whose labels use those global ids and whose names/nc match the 20-class head.
+    """
+    data_yaml_path = resolve_data_yaml_path(data_yaml)
+    cache_key = str(data_yaml_path)
+    if cache_key in EVAL_DATA_CACHE:
+        return EVAL_DATA_CACHE[cache_key]
+    cfg = load_mapping(data_yaml_path)
+    global_indices = cfg.get("global_class_indices")
+    if not global_indices:
+        EVAL_DATA_CACHE[cache_key] = data_yaml_path
+        return data_yaml_path
+
+    global_indices = [int(index) for index in global_indices]
+    global_names = {
+        0: "bicycle",
+        1: "bird",
+        2: "car",
+        3: "cat",
+        4: "dog",
+        5: "person",
+        6: "aeroplane",
+        7: "boat",
+        8: "bottle",
+        9: "bus",
+        10: "chair",
+        11: "cow",
+        12: "diningtable",
+        13: "horse",
+        14: "motorbike",
+        15: "pottedplant",
+        16: "sheep",
+        17: "sofa",
+        18: "train",
+        19: "tvmonitor",
+    }
+
+    eval_root = PROJECT_ROOT / "outputs" / "_eval_global_data" / data_yaml_path.parent.name
+    if eval_root.exists():
+        shutil.rmtree(eval_root)
+    eval_root.mkdir(parents=True, exist_ok=True)
+
+    prepared_cfg: dict[str, Any] = {
+        "path": str(eval_root.resolve()),
+        "nc": len(global_names),
+        "names": global_names,
+    }
+    for split in ("train", "val", "test"):
+        records: list[tuple[Path, Path]] = []
+        for source in resolve_split_sources(data_yaml_path, cfg, split):
+            records.extend(iter_images(source))
+        if not records:
+            continue
+        prepared_cfg[split] = f"images/{split}"
+        for image_path, relative_path in records:
+            dst_image = eval_root / "images" / split / relative_path
+            dst_label = eval_root / "labels" / split / relative_path.with_suffix(".txt")
+            link_or_copy_image(image_path, dst_image)
+            remap_local_label_to_global(infer_label_path(image_path), dst_label, global_indices)
+
+    prepared_yaml = eval_root / "data.yaml"
+    prepared_yaml.write_text(yaml.safe_dump(prepared_cfg, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    EVAL_DATA_CACHE[cache_key] = prepared_yaml
+    return prepared_yaml
 
 
 def resolve_plan_path(plan_path: str | Path) -> Path:
@@ -119,7 +290,7 @@ def evaluate_checkpoint(
 ) -> float:
     """运行 YOLO 验证流程，并返回指定的 mAP 数值。"""
     checkpoint = str(checkpoint)
-    data_yaml = str(data_yaml)
+    data_yaml = str(prepare_eval_data(data_yaml))
     key = (checkpoint, data_yaml, metric_name, str(imgsz or "default"))
     if key in cache:
         return cache[key]

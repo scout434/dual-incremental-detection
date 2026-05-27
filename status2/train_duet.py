@@ -148,7 +148,6 @@ def normalize_names(names: dict | list) -> dict[int, str]:
 
 
 IMAGE_SUFFIXES = {".bmp", ".dng", ".jpeg", ".jpg", ".mpo", ".png", ".tif", ".tiff", ".webp"}
-REFERENCE_INIT_VERSION = "pretrained_full_head_v2"
 
 
 def safe_task_name(name: str) -> str:
@@ -473,81 +472,12 @@ def build_full_head_model(cfg: dict):
     return model
 
 
-CLASS_NAME_ALIASES = {
-    "airplane": "aeroplane",
-    "aeroplane": "aeroplane",
-    "motorcycle": "motorbike",
-    "motorbike": "motorbike",
-    "diningtable": "diningtable",
-    "dining table": "diningtable",
-    "pottedplant": "pottedplant",
-    "potted plant": "pottedplant",
-    "couch": "sofa",
-    "sofa": "sofa",
-    "tv": "tvmonitor",
-    "tvmonitor": "tvmonitor",
-}
-
-
-def canonical_class_name(name: str) -> str:
-    """把 COCO/VOC 中写法不同但语义相同的类别名归一化。"""
-    compact = " ".join(str(name).lower().replace("_", " ").split())
-    if compact in CLASS_NAME_ALIASES:
-        return CLASS_NAME_ALIASES[compact]
-    return "".join(ch for ch in compact if ch.isalnum())
-
-
-def extract_checkpoint_names(ckpt) -> dict[int, str]:
-    """从 Ultralytics checkpoint 中读取预训练类别名。"""
-    candidate = ckpt.get("model") if isinstance(ckpt, dict) else ckpt
-    names = getattr(candidate, "names", None)
-    if names is None and isinstance(ckpt, dict):
-        names = ckpt.get("names")
-    if names is None:
-        return {}
-    return normalize_names(names)
-
-
-def copy_class_output_rows(
-    target_value: torch.Tensor,
-    pretrained_value: torch.Tensor,
-    target_names: dict[int, str],
-    pretrained_names: dict[int, str],
-) -> int:
+def load_backbone_neck_from_weights(model, weights: str | Path, exclude_patterns: Iterable[str]) -> None:
     """
-    将 COCO 预训练分类输出层中可匹配的类别通道拷贝到当前全局 head。
+    从预训练权重加载 backbone/neck，跳过检测头。
 
-    YOLO11n.pt 的分类输出通常是 80 类，而论文 Pascal 场景需要 20 类。
-    整层形状不一致时不能直接 load_state_dict，但可以按类别名拷贝对应行。
-    """
-    if target_value.dim() == 4 and pretrained_value.dim() == 4:
-        if target_value.shape[1:] != pretrained_value.shape[1:]:
-            return 0
-    elif target_value.dim() == 1 and pretrained_value.dim() == 1:
-        pass
-    else:
-        return 0
-
-    source_by_name = {canonical_class_name(name): idx for idx, name in pretrained_names.items()}
-    copied = 0
-    for target_idx, target_name in target_names.items():
-        source_idx = source_by_name.get(canonical_class_name(target_name))
-        if source_idx is None:
-            continue
-        if target_idx >= target_value.shape[0] or source_idx >= pretrained_value.shape[0]:
-            continue
-        target_value[target_idx] = pretrained_value[source_idx].to(target_value.device, dtype=target_value.dtype)
-        copied += 1
-    return copied
-
-
-def load_pretrained_full_head_weights(model, weights: str | Path) -> None:
-    """
-    从 YOLO 预训练权重初始化当前全局检测器。
-
-    论文 Algorithm 1 是从预训练 detector 权重 theta_0 出发。这里会：
-      1. 加载所有形状完全一致的参数，包括 box head 和 dfl；
-      2. 对形状不一致的 cv3 最终分类输出层，按类别名拷贝可对应的通道。
+    原 train_new1.py 中会跳过 model.23/cv2/cv3 等检测头参数，这是为了避免
+    COCO 80 类头或其他任务头覆盖当前手动构建的 20 类全量头。
     """
     ckpt = torch_load_checkpoint(weights, map_location="cpu")
     if isinstance(ckpt, dict) and "model" in ckpt:
@@ -560,31 +490,13 @@ def load_pretrained_full_head_weights(model, weights: str | Path) -> None:
         raise TypeError(f"Unsupported checkpoint type: {type(ckpt)!r}")
 
     model_state = model.model.state_dict()
-    target_names = normalize_names(model.model.names)
-    pretrained_names = extract_checkpoint_names(ckpt)
-    copied_exact = 0
-    copied_class_rows = 0
-
+    excluded = tuple(pattern.lower() for pattern in exclude_patterns)
     for key in list(model_state):
-        if key not in official_state:
-            continue
-        pretrained_value = official_state[key]
-        if model_state[key].shape == pretrained_value.shape:
-            model_state[key] = pretrained_value.clone()
-            copied_exact += 1
-            continue
-        if _is_class_output_key(key) and pretrained_names:
-            copied_class_rows += copy_class_output_rows(
-                model_state[key],
-                pretrained_value,
-                target_names,
-                pretrained_names,
-            )
+        # 只拷贝形状完全一致、且不属于检测头的参数。
+        if key in official_state and not any(pattern in key.lower() for pattern in excluded):
+            if model_state[key].shape == official_state[key].shape:
+                model_state[key] = official_state[key].clone()
     model.model.load_state_dict(model_state, strict=False)
-    print(
-        f"[DuET reference] loaded exact tensors={copied_exact}, "
-        f"class-output rows copied={copied_class_rows} from {weights}"
-    )
 
 
 def save_reference_checkpoint(cfg: dict, output_dir: Path) -> Path:
@@ -596,19 +508,20 @@ def save_reference_checkpoint(cfg: dict, output_dir: Path) -> Path:
     这样后续每个任务 checkpoint 都能和 reference 按相同 shape 做向量计算。
     """
     reference_path = output_dir / "reference_full_head.pt"
-    marker_path = output_dir / "reference_full_head.init_version"
     total_classes = int(cfg["detector"]["total_classes"])
-    marker_ok = marker_path.exists() and marker_path.read_text(encoding="utf-8").strip() == REFERENCE_INIT_VERSION
-    if reference_path.exists() and marker_ok and checkpoint_has_full_class_head(reference_path, total_classes):
+    if reference_path.exists() and checkpoint_has_full_class_head(reference_path, total_classes):
         return reference_path
     if reference_path.exists():
-        print(f"[DuET reference] 发现旧 reference 初始化版本不匹配，正在重新生成: {reference_path}")
+        print(f"[DuET reference] 发现旧 reference 不是 {total_classes} 类全量头，正在重新生成: {reference_path}")
 
     model = build_full_head_model(cfg)
-    load_pretrained_full_head_weights(model, cfg["detector"]["base_weights"])
+    load_backbone_neck_from_weights(
+        model,
+        cfg["detector"]["base_weights"],
+        cfg["duet"].get("shared_key_exclude", ["dfl", "cv2", "cv3"]),
+    )
     reference_path.parent.mkdir(parents=True, exist_ok=True)
     model.save(reference_path)
-    marker_path.write_text(REFERENCE_INIT_VERSION + "\n", encoding="utf-8")
     return reference_path
 
 
@@ -877,6 +790,7 @@ def resolve_config_path(config_path: str | Path) -> Path:
     if path.is_absolute():
         return path
     for base in (Path.cwd(), SCRIPT_DIR, PROJECT_ROOT):
+        print(base)
         candidate = base / path
         if candidate.exists():
             return candidate.resolve()

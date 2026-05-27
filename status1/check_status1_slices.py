@@ -23,22 +23,22 @@ IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".webp"}
 CHECK_ITEMS = [
     (
         "voc_1_10",
-        Path("outputs/status1_paper_slices/pascal_2phase/voc_1_10/data.yaml"),
+        Path("data/pascal_voc_yolo/voc_1_10/data.yaml"),
         set(range(0, 10)),
     ),
     (
         "clipart_11_20",
-        Path("outputs/status1_paper_slices/pascal_2phase/clipart_11_20/data.yaml"),
-        set(range(10, 20)),
+        Path("data/clipart_paper_yolo/clipart_11_20/data.yaml"),
+        set(range(0, 10)),
     ),
     (
         "voc_11_20",
-        Path("outputs/status1_paper_slices/pascal_2phase/voc_11_20/data.yaml"),
-        set(range(10, 20)),
+        Path("data/pascal_voc_yolo/voc_11_20/data.yaml"),
+        set(range(0, 10)),
     ),
     (
         "clipart_1_10",
-        Path("outputs/status1_paper_slices/pascal_2phase/clipart_1_10/data.yaml"),
+        Path("data/clipart_paper_yolo/clipart_1_10/data.yaml"),
         set(range(0, 10)),
     ),
 ]

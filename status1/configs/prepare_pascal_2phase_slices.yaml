@@ -9,7 +9,9 @@
 #
 # 使用前请把 sources.voc 和 sources.clipart 改成你服务器上“全量数据”的 data.yaml。
 
-output_root: outputs/status1_paper_slices/pascal_2phase
+# 当前项目已经用 scripts/prepare_server_status1_slices.py 或同类脚本
+# 直接生成 local-label 切片到 data/ 下；这里保留为备用切片配置。
+output_root: data/status1_paper_slices/pascal_2phase
 copy_images: false
 
 global_names:
@@ -36,9 +38,9 @@ global_names:
 
 sources:
   # 这里必须是全量 VOC 数据，不是已经切坏或混类的 task_1。
-  voc: /root/autodl-tmp/voc_yolo/data.yaml
+  voc: data/pascal_voc_yolo/voc_1_20/data.yaml
   # 这里必须是全量 Clipart 数据。路径如果不同，请改成你服务器上的真实路径。
-  clipart: /root/autodl-tmp/clipart_yolo/data.yaml
+  clipart: data/clipart_paper_yolo/clipart_1_20/data.yaml
 
 slices:
   - name: voc_1_10

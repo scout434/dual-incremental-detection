@@ -55,13 +55,13 @@ duet:
   dc_weight: 0.0
   distill_temperature: 2.0
   shared_key_exclude:
-    - dfl
-    - cv2
-    - cv3
+    - model.23.dfl
+    - model.23.cv2
+    - model.23.cv3
   verbose_merge: false
 
 tasks:
   - name: reference_voc_11_20
-    data: outputs/status1_paper_slices/pascal_2phase/voc_11_20/data.yaml
+    data: data/pascal_voc_yolo/voc_11_20/data.yaml
     class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-    labels_are_global: true
+    labels_are_global: false

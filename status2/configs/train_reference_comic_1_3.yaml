@@ -5,7 +5,8 @@ experiment:
   seed: 42
 
 detector:
-  base_weights: yolo11n.pt
+  #base_weights: yolo11n.pt
+  base_weights: /root/autodl-tmp/dual/dual_incremental_detection_master/status2/yolo11n.pt
   model_yaml: yolo11n.yaml
   total_classes: 20
   names:
@@ -62,6 +63,6 @@ duet:
 tasks:
   # TODO：把 data 改成你服务器上 Comic 1-3 切片的真实 data.yaml。
   - name: reference_comic_1_3
-    data: /root/autodl-tmp/test_tasks/status2/comic_1_3/data.yaml
+    data: /root/autodl-tmp/test_tasks_2/task_7/data.yaml
     class_indices: [0, 1, 2]
-    labels_are_global: auto
+    labels_are_global: local   #将原来的 auto变为local

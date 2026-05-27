@@ -64,9 +64,9 @@ duet:
   dc_weight: 0.01
   distill_temperature: 2.0
   shared_key_exclude:
-    - dfl
-    - cv2
-    - cv3
+    - model.23.dfl
+    - model.23.cv2
+    - model.23.cv3
   verbose_merge: false
 
 tasks:
@@ -74,13 +74,13 @@ tasks:
   # 注意：这里默认指向 status1/prepare_paper_slices.py 重新切出的干净数据。
   # 训练日志中必须看到 class_indices 仍然是 [0..9]，不能被修正成 [0..19]。
   - name: voc_1_10
-    data: outputs/status1_paper_slices/pascal_2phase/voc_1_10/data.yaml
+    data: data/pascal_voc_yolo/voc_1_10/data.yaml
     class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    labels_are_global: true
+    labels_are_global: false
 
   # T2: 11-20 from Clipart
   # 训练日志中必须看到 class_indices 仍然是 [10..19]。
   - name: clipart_11_20
-    data: outputs/status1_paper_slices/pascal_2phase/clipart_11_20/data.yaml
+    data: data/clipart_paper_yolo/clipart_11_20/data.yaml
     class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-    labels_are_global: true
+    labels_are_global: false

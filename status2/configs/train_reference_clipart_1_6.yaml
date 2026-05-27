@@ -62,6 +62,6 @@ duet:
 tasks:
   # TODO：把 data 改成你服务器上 Clipart 1-6 切片的真实 data.yaml。
   - name: reference_clipart_1_6
-    data: /root/autodl-tmp/test_tasks/status2/clipart_1_6/data.yaml
+    data: /root/autodl-tmp/test_tasks_2/task_3/data.yaml
     class_indices: [0, 1, 2, 3, 4, 5]
-    labels_are_global: auto
+    labels_are_global: local   #，把原来的 global 改成 local进行测试

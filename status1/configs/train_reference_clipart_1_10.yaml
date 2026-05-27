@@ -54,13 +54,13 @@ duet:
   dc_weight: 0.0
   distill_temperature: 2.0
   shared_key_exclude:
-    - dfl
-    - cv2
-    - cv3
+    - model.23.dfl
+    - model.23.cv2
+    - model.23.cv3
   verbose_merge: false
 
 tasks:
   - name: reference_clipart_1_10
-    data: outputs/status1_paper_slices/pascal_2phase/clipart_1_10/data.yaml
+    data: data/clipart_paper_yolo/clipart_1_10/data.yaml
     class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    labels_are_global: true
+    labels_are_global: false
