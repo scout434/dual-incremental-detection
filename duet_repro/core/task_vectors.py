@@ -188,10 +188,11 @@ def task_vector(
     """
     delta: StateDict = {}
     for key, ref_value in reference.items():
-        tgt_value = target.get(key).to(device)
-        ref_value = ref_value.to(device)
+        tgt_value = target.get(key)
         if tgt_value is None:
             continue
+        ref_value = ref_value.to(device)
+        tgt_value = tgt_value.to(device)
         if ref_value.shape != tgt_value.shape:
             continue
         if not torch.is_floating_point(ref_value):

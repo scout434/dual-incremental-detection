@@ -63,8 +63,9 @@ duet:
   distill_weight: 0.01
   dc_weight: 0.01
   distill_temperature: 2.0
-  # Paper-faithful split: backbone/neck are shared parameters, while the full
-  # YOLO Detect head is task-specific and is concatenated after shared merge.
+  # Paper-faithful split for YOLO11n: backbone/neck are shared parameters.
+  # The final cv3 class-output rows are kept per task inside one fixed 20-class
+  # Detect head, preserving the paper's reported YOLO11n complexity.
   shared_key_exclude:
     - model.23
   verbose_merge: false

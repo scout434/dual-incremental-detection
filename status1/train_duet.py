@@ -43,7 +43,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from duet_repro.core.duet_module import merge_state_dicts_with_duet_module
-from duet_repro.core.incremental_head import inject_incremental_head_checkpoint
 from duet_repro.core.task_vectors import (
     StateDict,
     inject_state_dict_into_checkpoint,
@@ -706,6 +705,8 @@ def train_one_task(
             distill_weight=distill_weight,
             dc_weight=dc_weight,
             distill_temperature=float(duet_cfg.get("distill_temperature", 2.0)),
+            reference_state=reference_state,
+            shared_key_exclude=tuple(duet_cfg.get("shared_key_exclude", [])),
             old_class_indices=list(old_class_indices) if old_class_indices is not None else None,
         )
         if prev_task_vector is not None:
@@ -720,6 +721,7 @@ def train_one_task(
             from ultralytics.utils.torch_utils import unwrap_model
 
             original_model = unwrap_model(trainer.model)
+            criterion.model = original_model
             if hasattr(original_model, "args"):
                 criterion.hyp = original_model.args
             original_model.criterion = criterion
@@ -1010,16 +1012,14 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
         if task_index == 1 or not duet_cfg.get("enabled", True):
             inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
         else:
-            inject_incremental_head_checkpoint(
-                template_checkpoint_path=trained_ckpt,
-                merged_shared_state=merged_state,
-                old_checkpoint_path=old_ckpt,
-                new_checkpoint_path=trained_ckpt,
-                output_path=merged_ckpt,
-                old_class_indices=learned_indices,
-                new_class_indices=current_indices,
-                total_classes=int(cfg["detector"]["total_classes"]),
+            merged_state = merge_full_head_slices(
+                merged_state,
+                old_state,
+                new_state,
+                learned_indices=learned_indices,
+                current_indices=current_indices,
             )
+            inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
 
         # 记录已经学习过的全局类别通道，供下一轮 head slice 合并使用。
         learned_indices = sorted(set(learned_indices) | set(current_indices))

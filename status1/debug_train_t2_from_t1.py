@@ -26,15 +26,16 @@ PROJECT_ROOT = SCRIPT_DIR
 if not (PROJECT_ROOT / "duet_repro").exists():
     PROJECT_ROOT = PROJECT_ROOT.parent
 
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
+for search_path in (str(PROJECT_ROOT), str(SCRIPT_DIR)):
+    if search_path in sys.path:
+        sys.path.remove(search_path)
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(SCRIPT_DIR))
 
 from duet_repro.core.task_vectors import inject_state_dict_into_checkpoint, load_state_dict, task_vector
-from duet_repro.core.incremental_head import inject_incremental_head_checkpoint
 from train_duet import (
     load_config,
+    merge_full_head_slices,
     merge_state_dicts_with_duet_module,
     prepare_global_task_data,
     resolve_config_path,
@@ -85,6 +86,11 @@ def main() -> None:
     parser.add_argument("--distill-weight", type=float, default=None, help="Override duet.distill_weight.")
     parser.add_argument("--dc-weight", type=float, default=None, help="Override duet.dc_weight.")
     parser.add_argument("--skip-merge", action="store_true", help="Train T2 only and skip DuET merge.")
+    parser.add_argument(
+        "--trained-checkpoint",
+        default=None,
+        help="Reuse an existing T2 trained checkpoint and run merge only.",
+    )
     args = parser.parse_args()
 
     config_path = resolve_status1_config(args.config)
@@ -169,18 +175,22 @@ def main() -> None:
     print(f"new class indices   : {current_indices}")
     print("=" * 72 + "\n")
 
-    trained_ckpt = train_one_task(
-        t1_ckpt,
-        t2_task,
-        cfg,
-        debug_output_dir,
-        is_first=False,
-        teacher_ckpt=t1_ckpt,
-        prev_task_vector=prev_tv,
-        task_vector_history=[prev_tv],
-        reference_state=reference_state,
-        old_class_indices=learned_indices,
-    )
+    if args.trained_checkpoint:
+        trained_ckpt = resolve_existing_path(Path(args.trained_checkpoint))
+        print(f"[Status1 T2 Debug] Reusing existing T2 trained checkpoint: {trained_ckpt}")
+    else:
+        trained_ckpt = train_one_task(
+            t1_ckpt,
+            t2_task,
+            cfg,
+            debug_output_dir,
+            is_first=False,
+            teacher_ckpt=t1_ckpt,
+            prev_task_vector=prev_tv,
+            task_vector_history=[prev_tv],
+            reference_state=reference_state,
+            old_class_indices=learned_indices,
+        )
     print(f"[Status1 T2 Debug] T2 trained checkpoint: {trained_ckpt}")
 
     if args.skip_merge:
@@ -199,16 +209,14 @@ def main() -> None:
             per_layer_report=duet_cfg.get("verbose_merge", False),
         )
         latest_ckpt = debug_output_dir / f"task_2_{t2_task['name']}_duet.pt"
-        inject_incremental_head_checkpoint(
-            template_checkpoint_path=trained_ckpt,
-            merged_shared_state=merged_state,
-            old_checkpoint_path=t1_ckpt,
-            new_checkpoint_path=trained_ckpt,
-            output_path=latest_ckpt,
-            old_class_indices=learned_indices,
-            new_class_indices=current_indices,
-            total_classes=int(cfg["detector"]["total_classes"]),
+        merged_state = merge_full_head_slices(
+            merged_state,
+            old_state,
+            new_state,
+            learned_indices=learned_indices,
+            current_indices=current_indices,
         )
+        inject_state_dict_into_checkpoint(trained_ckpt, merged_state, latest_ckpt)
         print(
             "[Status1 T2 Debug] merged_keys={0} skipped_keys={1}".format(
                 report["merged_keys"],

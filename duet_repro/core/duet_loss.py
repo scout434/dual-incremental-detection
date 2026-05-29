@@ -24,7 +24,7 @@ Direction Consistency Loss (LDC) 公式（论文 Eq 16）：
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
 import torch
 import torch.nn as nn
@@ -70,6 +70,8 @@ class DuETDetectionLoss(v8DetectionLoss):
             distill_cls_quantile: float = 0.75,
             distill_bbox_quantile: float = 0.75,
             curr_task_vector: dict | None = None,
+            reference_state: dict | None = None,
+            shared_key_exclude: Iterable[str] = (),
             old_class_indices: list[int] | tuple[int, ...] | None = None,
     ):
         """
@@ -87,6 +89,7 @@ class DuETDetectionLoss(v8DetectionLoss):
                             用于计算方向一致性损失。
         """
         super().__init__(model)
+        self.model = model
         self.teacher = teacher_model
         self.distill_weight = distill_weight
         self.dc_weight = dc_weight
@@ -94,6 +97,8 @@ class DuETDetectionLoss(v8DetectionLoss):
         self.distill_cls_quantile = distill_cls_quantile
         self.distill_bbox_quantile = distill_bbox_quantile
         self.curr_task_vector = curr_task_vector
+        self.reference_state = reference_state
+        self.shared_key_exclude = tuple(str(pattern).lower() for pattern in shared_key_exclude)
         self.old_class_indices = None if old_class_indices is None else tuple(int(i) for i in old_class_indices)
         self.task_vector_history: list[dict] = []
         self._teacher_dtype_synced = False
@@ -117,6 +122,35 @@ class DuETDetectionLoss(v8DetectionLoss):
             curr_task_vector: 上一任务相对于基准预训练模型的任务向量。
         """
         self.curr_task_vector = curr_task_vector
+
+    def set_reference_state(self, reference_state: dict, shared_key_exclude: Iterable[str] = ()) -> None:
+        """Set the fixed reference model used to build differentiable task vectors."""
+        self.reference_state = reference_state
+        self.shared_key_exclude = tuple(str(pattern).lower() for pattern in shared_key_exclude)
+
+    def _key_is_shared(self, key: str) -> bool:
+        lowered = key.lower()
+        return not any(pattern in lowered for pattern in self.shared_key_exclude)
+
+    def _current_task_vector_with_grad(self) -> dict[str, torch.Tensor] | None:
+        """Build theta_current - theta_reference without detaching current parameters."""
+        if self.reference_state is None:
+            return None
+
+        delta: dict[str, torch.Tensor] = {}
+        for key, param in self.model.named_parameters():
+            ref_value = self.reference_state.get(key)
+            if ref_value is None:
+                continue
+            if ref_value.shape != param.shape:
+                continue
+            if not torch.is_floating_point(param):
+                continue
+            if not self._key_is_shared(key):
+                continue
+            ref_value = ref_value.to(param.device, dtype=param.dtype)
+            delta[key] = param.float() - ref_value.float()
+        return delta
 
     @staticmethod
     def _scores_to_anchor_last(scores: torch.Tensor, nc: int) -> torch.Tensor:
@@ -195,14 +229,14 @@ class DuETDetectionLoss(v8DetectionLoss):
 
         # Step 2: 计算蒸馏损失（附录 B Eq 11-16）
         distill_loss = torch.tensor(0.0, device=detection_loss.device)
-        if self.teacher is not None:
+        if self.teacher is not None and self.distill_weight > 0:
             distill_loss = self._compute_distillation_loss(preds, batch)
             total_loss = total_loss + self.distill_weight * distill_loss
             loss_items = torch.cat([loss_items, distill_loss.detach().unsqueeze(0)])
 
         # Step 3: 计算方向一致性损失（如果有历史任务向量）
         dc_loss = torch.tensor(0.0, device=detection_loss.device)
-        if self.curr_task_vector is not None and len(self.task_vector_history) >= 1:
+        if (self.curr_task_vector is not None or self.reference_state is not None) and len(self.task_vector_history) >= 1:
             dc_loss = self._compute_directional_consistency_loss().to(self.device)
             total_loss = total_loss + self.dc_weight * dc_loss
             loss_items = torch.cat([loss_items, dc_loss.detach().unsqueeze(0)])
@@ -284,12 +318,14 @@ class DuETDetectionLoss(v8DetectionLoss):
 
         # 学生模型分类shape只取前old_nc个
         if student_cls_raw.shape != teacher_cls_raw.shape:
-            old_nc = teacher_cls_raw.shape[1]
+            if student_cls_raw.shape[:2] != teacher_cls_raw.shape[:2]:
+                return torch.tensor(0.0, device=device)
+            old_nc = teacher_cls_raw.shape[2]
             # Student 的类别数
-            new_nc = student_cls_raw.shape[1]
+            new_nc = student_cls_raw.shape[2]
             if new_nc < old_nc:
                 return torch.tensor(0.0, device=device)
-            student_cls_raw = student_cls_raw[:, :old_nc, :]
+            student_cls_raw = student_cls_raw[:, :, :old_nc]
 
         # 检查bbox形状是否一致
         if student_bbox_raw.shape != teacher_bbox_raw.shape:
@@ -310,7 +346,6 @@ class DuETDetectionLoss(v8DetectionLoss):
 
         # ===== 分类蒸馏 (Eq 12-13) =====
         # 使用原始分类 logits（未经过 sigmoid/softmax）
-        teacher_cls_flat = teacher_cls_raw.reshape(batch_size * total_anchors, -1).float()
         teacher_cls_flat = teacher_cls_raw.reshape(batch_size * total_anchors, -1).float()
         student_cls_flat = student_cls_raw.reshape(batch_size * total_anchors, -1).float()
 
@@ -365,13 +400,17 @@ class DuETDetectionLoss(v8DetectionLoss):
         Returns:
             方向一致性损失标量。
         """
-        if self.curr_task_vector is None or len(self.task_vector_history) < 1:
+        current_delta = self._current_task_vector_with_grad()
+        if current_delta is None:
+            current_delta = self.curr_task_vector
+
+        if current_delta is None or len(self.task_vector_history) < 1:
             return torch.tensor(0.0)
 
         # 获取当前任务和上一任务的任务向量
         # prev_task_vector = τ_{t}（从基准到上一任务）
         # task_vector_history[-1] = τ_{t-1}
-        curr_delta = self.curr_task_vector  # τ_{t}
+        curr_delta = current_delta  # τ_{t}
         prev_delta = self.task_vector_history[-1]   # τ_{t-1}
 
         losses: list[torch.Tensor] = []
@@ -381,7 +420,7 @@ class DuETDetectionLoss(v8DetectionLoss):
                 continue
 
             delta_curr = curr_delta[key]  # τ_{t}
-            delta_prev = prev_delta[key]  # τ_{t-1}
+            delta_prev = prev_delta[key].to(delta_curr.device, dtype=delta_curr.dtype)  # τ_{t-1}
 
             if delta_curr.shape != delta_prev.shape:
                 continue
@@ -393,7 +432,7 @@ class DuETDetectionLoss(v8DetectionLoss):
             if len(self.task_vector_history) >= 2:
                 prev_prev_delta = self.task_vector_history[-2]
                 if key in prev_prev_delta:
-                    delta_prev_prev = prev_prev_delta[key]
+                    delta_prev_prev = prev_prev_delta[key].to(delta_curr.device, dtype=delta_curr.dtype)
                     update_prev = delta_prev - delta_prev_prev
                 else:
                     update_prev = delta_prev
@@ -440,6 +479,8 @@ def create_duet_criterion(
         distill_temperature: float = 2.0,
         distill_cls_quantile: float = 0.75,
         distill_bbox_quantile: float = 0.75,
+        reference_state: dict | None = None,
+        shared_key_exclude: Iterable[str] = (),
         old_class_indices: list[int] | tuple[int, ...] | None = None,
 ) -> DuETDetectionLoss:
     """
@@ -478,5 +519,7 @@ def create_duet_criterion(
         distill_temperature=distill_temperature,
         distill_cls_quantile=distill_cls_quantile,
         distill_bbox_quantile=distill_bbox_quantile,
+        reference_state=reference_state,
+        shared_key_exclude=shared_key_exclude,
         old_class_indices=old_class_indices,
     )

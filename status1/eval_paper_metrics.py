@@ -310,11 +310,15 @@ def evaluate_checkpoint(
     device: str | int,
     imgsz: int | None = None,
     split: str = "val",
+    prepare_global_labels: bool = True,
     cache: dict[tuple[str, str, str, str], float],
 ) -> float:
     """运行 YOLO 验证流程，并返回指定的 mAP 数值。"""
     checkpoint = str(checkpoint)
-    data_yaml = str(prepare_eval_data(data_yaml, split=split))
+    if prepare_global_labels:
+        data_yaml = str(prepare_eval_data(data_yaml, split=split))
+    else:
+        data_yaml = str(resolve_data_yaml_path(data_yaml))
     key = (checkpoint, data_yaml, metric_name, str(imgsz or "default"))
     if key in cache:
         return cache[key]
@@ -374,6 +378,7 @@ def resolve_value(
         device=device,
         imgsz=imgsz,
         split=spec.get("split", split),
+        prepare_global_labels=bool(spec.get("prepare_global_labels", True)),
         cache=cache,
     )
     return {
