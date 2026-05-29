@@ -650,6 +650,7 @@ def train_one_task(
     prev_task_vector: StateDict | None,
     task_vector_history: list[StateDict],
     reference_state: StateDict,
+    old_class_indices: Iterable[int] | None = None,
 ) -> Path:
     """
     训练单个阶段。
@@ -692,6 +693,7 @@ def train_one_task(
             distill_weight=distill_weight,
             dc_weight=dc_weight,
             distill_temperature=float(duet_cfg.get("distill_temperature", 2.0)),
+            old_class_indices=list(old_class_indices) if old_class_indices is not None else None,
         )
         if prev_task_vector is not None:
             # prev_task_vector 用作方向一致性损失的当前历史方向。
@@ -949,6 +951,7 @@ def main(config_path: str = "configs/train_status2.yaml") -> None:
             prev_task_vector=prev_tv,
             task_vector_history=task_vector_history,
             reference_state=reference_state,
+            old_class_indices=learned_indices,
         )
 
         if task_index == 1 or not duet_cfg.get("enabled", True):

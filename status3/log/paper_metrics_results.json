@@ -1,0 +1,94 @@
+{
+  "metric": "map50",
+  "clamp_to_one": false,
+  "avg_ri": 4.431608303054543e-09,
+  "avg_gi": 4.65111190694451e-09,
+  "rai": 4.5413601049995265e-09,
+  "avg_ri_percent": 4.4316083030545427e-07,
+  "avg_gi_percent": 4.65111190694451e-07,
+  "rai_percent": 4.5413601049995267e-07,
+  "retention": [
+    4.431608303054543e-09
+  ],
+  "generalization": [
+    0.0,
+    9.30222381388902e-09
+  ],
+  "retention_details": [
+    {
+      "name": "RI_DaytimeSunny_1_4_after_T2",
+      "ratio": 4.431608303054543e-09,
+      "ratio_percent": 4.4316083030545427e-07,
+      "numerator": {
+        "value": 2.079020520764148e-09,
+        "checkpoint": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+        "data": "/home/lenovo/gaoyingying/tasks/task_1/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.46913453956008627,
+        "checkpoint": "outputs/status3_weather_2phase_duet_yolo11n/task_1_daytime_sunny_1_4_best.pt",
+        "data": "/home/lenovo/gaoyingying/tasks/task_1/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    }
+  ],
+  "generalization_details": [
+    {
+      "name": "GI_DaytimeSunny_5_7_at_T2",
+      "ratio": 0.0,
+      "ratio_percent": 0.0,
+      "numerator": {
+        "value": 0.0,
+        "checkpoint": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+        "data": "/home/lenovo/gaoyingying/tasks/task_2/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.0,
+        "checkpoint": "outputs/status3_reference_daytime_sunny_5_7_yolo11n/task_1_reference_daytime_sunny_5_7_best.pt",
+        "data": "/home/lenovo/gaoyingying/tasks/task_2/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    },
+    {
+      "name": "GI_NightSunny_1_4_at_T2",
+      "ratio": 9.30222381388902e-09,
+      "ratio_percent": 9.30222381388902e-07,
+      "numerator": {
+        "value": 4.384598250954527e-09,
+        "checkpoint": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+        "data": "/home/lenovo/gaoyingying/tasks/task_3/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.4713494685440641,
+        "checkpoint": "outputs/status3_reference_night_sunny_1_4_yolo11n/task_1_reference_night_sunny_1_4_best.pt",
+        "data": "/home/lenovo/gaoyingying/tasks/task_3/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    }
+  ],
+  "checkpoint_aliases": {
+    "reference": "outputs/status3_weather_2phase_duet_yolo11n/reference_full_head.pt",
+    "latest": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+    "final": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+    "t1": "outputs/status3_weather_2phase_duet_yolo11n/task_1_daytime_sunny_1_4_best.pt",
+    "task_1": "outputs/status3_weather_2phase_duet_yolo11n/task_1_daytime_sunny_1_4_best.pt",
+    "daytime_sunny_1_4": "outputs/status3_weather_2phase_duet_yolo11n/task_1_daytime_sunny_1_4_best.pt",
+    "t1_trained": "/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/weights/best.pt",
+    "task_1_trained": "/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/weights/best.pt",
+    "daytime_sunny_1_4_trained": "/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/weights/best.pt",
+    "t2": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+    "task_2": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+    "night_sunny_5_7": "outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt",
+    "t2_trained": "/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/weights/best.pt",
+    "task_2_trained": "/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/weights/best.pt",
+    "night_sunny_5_7_trained": "/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/weights/best.pt",
+    "ref_daytime_sunny_5_7": "outputs/status3_reference_daytime_sunny_5_7_yolo11n/task_1_reference_daytime_sunny_5_7_best.pt",
+    "ref_night_sunny_1_4": "outputs/status3_reference_night_sunny_1_4_yolo11n/task_1_reference_night_sunny_1_4_best.pt"
+  }
+}

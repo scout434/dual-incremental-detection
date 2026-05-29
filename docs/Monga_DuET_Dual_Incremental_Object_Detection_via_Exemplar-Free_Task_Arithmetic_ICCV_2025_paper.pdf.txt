@@ -1,0 +1,644 @@
+                                This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+                                              Except for this watermark, it is identical to the accepted version;
+                                        the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+  DuET: Dual Incremental Object Detection via Exemplar-Free Task Arithmetic
+
+                   Munish Monga1,2 Vishal Chudasama1 Pankaj Wasnik1,∗ Biplab Banerjee2
+                         1
+                           Sony Research India 2 Indian Institute of Technology, Bombay
+             {munish.monga, vishal.chudasama1, pankaj.wasnik}@sony.com, getbiplab@gmail.com
+
+
+
+
+Figure 1. Comparison of Class Incremental Object Detection (CIOD), Domain Incremental Object Detection (DIOD), and our
+proposed Dual Incremental Object Detection (DuIOD), where ✓ : the scenario is addressed, ✗ : the scenario is NOT addressed.
+CIOD (left) incrementally learns new categories (\protect \mathcal  {C}_1 \rightarrow \mathcal {C}_2 ) in a fixed domain but struggles in unseen domains. DIOD (middle), adapts to
+new domains (\protect \mathcal  {D}_1 \rightarrow \mathcal {D}_2 ) but does not detect new classes. In contrast, DuIOD (right) addresses both challenges by learning new object
+categories while generalizing across evolving domains (zoomed-in for best view).
+
+                                  Abstract                                                   1. Introduction
+Real-world object detection systems, such as those in au-                                    Real-world object detection systems must continuously
+tonomous driving and surveillance, must continuously learn                                   learn new categories and adapt dynamically to evolving en-
+new object categories and simultaneously adapt to chang-                                     vironments without necessitating full retraining. Traditional
+ing environmental conditions. Existing approaches, Class                                     models, typically trained on static datasets, struggle to per-
+Incremental Object Detection (CIOD) and Domain Incre-                                        form effectively in dynamic real-world scenarios like au-
+mental Object Detection (DIOD)—only address one aspect                                       tonomous driving and surveillance, where they must recog-
+of this challenge. CIOD struggles in unseen domains, while                                   nize novel objects while handling environmental variations.
+DIOD suffers from catastrophic forgetting when learning                                      For example, an autonomous vehicle must detect newly
+new classes, limiting their real-world applicability. To over-                               introduced road signs under diverse lighting and weather
+come these limitations, we introduce Dual Incremental Ob-                                    conditions—without forgetting past knowledge, a challenge
+ject Detection (DuIOD), a more practical setting that simul-                                 known as catastrophic forgetting [25, 38, 40].
+taneously handles class and domain shifts in an exemplar-                                       Existing approaches attempt to address this through
+free manner. We propose DuET, a Task Arithmetic-based                                        Class Incremental Object Detection (CIOD) [9, 19, 20, 28,
+model merging framework that enables stable incremental                                      40], which learns new object categories while assuming a
+learning while mitigating sign conflicts through a novel Di-                                 fixed domain, and Domain Incremental Object Detection
+rectional Consistency Loss. Unlike prior methods, DuET                                       (DIOD) [41], which adapts to unseen domains while keep-
+is detector-agnostic, allowing models like YOLO11 and RT-                                    ing object categories unchanged. However, these methods
+DETR to function as real-time incremental object detectors.                                  operate under restrictive assumptions—CIOD neglects do-
+To comprehensively evaluate both retention and adaptation,                                   main shifts, while DIOD assumes a fixed set of object cat-
+we introduce the Retention-Adaptability Index (RAI), which                                   egories. As shown in Figure 1, both approaches fail when
+combines the Average Retention Index (Avg RI) for catas-                                     faced with simultaneous class and domain shifts, a scenario
+trophic forgetting and the Average Generalization Index for                                  frequently encountered in real-world applications.
+domain adaptability into a common ground. Extensive ex-                                         To bridge this gap, we introduce a more practical yet
+periments on the Pascal Series and Diverse Weather Series                                    underexplored setting, Dual Incremental Object Detection
+demonstrate DuET’s effectiveness, achieving a +13.12%                                        (DuIOD), where object detectors must incrementally learn
+RAI improvement while preserving 89.3% Avg RI on the                                         new object categories across evolving domains without ac-
+Pascal Series (4 tasks), as well as a +11.39% RAI improve-                                   cess to previous training data (exemplar-free). While some
+ment with 88.57% Avg RI on the Diverse Weather Series (3                                     works, such as VIL [35], extend incremental learning to
+tasks), outperforming existing methods.                                                      both class and domain shifts, they primarily focus on classi-
+   * Corresponding author                                                                    fication tasks and do not address key object detection chal-
+
+
+
+                                                                                     3121
+                                                                                                                                              and adaptation performance, we propose a new evaluation
+                                                                                                                                              metric, the Retention-Adaptability Index (RAI).
+                                                                                                                                                  Our extensive experiments on Pascal Series and Diverse
+                                                                                                                                              Weather Series datasets demonstrate the effectiveness of
+                                                                                                                                              DuET in addressing the DuIOD task. As highlighted in
+                                                                                                                                              Figure 2, CIOD-based methods (e.g., CL-DETR [28]) suf-
+                                                                                                                                              fer severe forgetting in unseen domains, while DIOD-based
+                                                                                                                                              methods (e.g., LDB [41]) fail to retain previously learned
+                                                                                                                                              categories. Additionally, conventional incremental learning
+Figure 2. Catastrophic forgetting of \protect \mathcal  {T}_1 classes in multi-phase                                                          techniques such as LwF [25] and ERD [8] also struggle in
+experiments for various methods on the DuIOD task. The left                                                                                   this setting. In contrast, DuET significantly mitigates catas-
+plot illustrates catastrophic forgetting in Night Sunny [1:2] classes                                                                         trophic forgetting and enables robust incremental learning
+across three incremental tasks: Night Sunny [1:2] (\protect \mathcal  {T}_1 ) \rightarrow  Day-                                               across both class and domain shifts. We highlight our con-
+time Sunny [3:4] (\protect \mathcal  {T}_2 ) \rightarrow  Daytime Foggy [5:7] (\protect \mathcal  {T}_3 ) on the Diverse                      tributions as:
+Weather Series dataset. Similarly, the right plot depicts catas-                                                                              - To the best of our knowledge, DuET is the first method to
+trophic forgetting in Watercolor [1:3] classes across four incre-
+                                                                                                                                              tackle DuIOD using the concept of Task Merging.
+mental tasks: Watercolor [1:3] (\protect \mathcal  {T}_1 ) \rightarrow  Comic [4:6] (\protect \mathcal  {T}_2 ) \rightarrow  Clipart
+                                                                                                                                              - We propose a novel TA-based algorithm which is object
+[7:13] (\protect \mathcal  {T}_3 ) \rightarrow  VOC [14:20] (\protect \mathcal  {T}_4 ) on the Pascal Series dataset.
+                                                                                                                                              detector agnostic, validated YOLO11 and RT-DETR, en-
+                                                                                                                                              abling real-time incremental object detection.
+lenges like spatial feature retention and bounding box re-
+                                                                                                                                              - We propose Directional Consistency Loss to mitigate sign
+finement, nor do they tackle the background shift problem
+                                                                                                                                              conflicts during model merging, ensuring stable incremen-
+of IOD [27, 32], where previously learned objects are mis-
+                                                                                                                                              tal learning.
+classified as background if unannotated in later tasks, all of
+                                                                                                                                              - To quantify both catastrophic forgetting and adaptation
+which are present in DuIOD. Recently, PD [15] partially
+                                                                                                                                              performance, we introduce a new evaluation metric, the
+addresses domain shifts in object detection but fails to gen-
+                                                                                                                                              Retention-Adaptability Index.
+eralize to the broader DuIOD problem.
+   To tackle the challenges of DuIOD, we propose DuET,
+                                                                                                                                              2. Related Works
+a simple yet effective Task Arithmetic (TA) [13] based in-
+cremental learning framework for robust object detection                                                                                      Class Incremental Object Detection: CIOD has evolved
+across evolving domains. TA paradigm was recently intro-                                                                                      from early CNN-based methods [2, 8, 22, 27, 34, 36, 37, 40]
+duced by [13] for modifying pre-trained models via arith-                                                                                     to Transformer-based approaches [9, 18–20, 28], improving
+metic operations on task vectors. Formally, a task vector is                                                                                  generalization and stability during incremental updates. Ini-
+derived by subtracting the weights of a pre-trained model                                                                                     tial efforts, such as [40], introduced CIOD via knowledge
+from those of the same model fine-tuned on a specific task.                                                                                   distillation inspired by incremental classification methods
+In DuET, we decompose model parameters into shared pa-                                                                                        like LwF [25]. Subsequent works explored intermediate
+rameters, which persist across all incremental tasks, and                                                                                     feature distillation [3, 4, 10], replay buffers [1, 19, 39], pa-
+task-specific parameters, which evolve incrementally. We                                                                                      rameter isolation [23, 50], and pseudo-labeling [9, 20, 46].
+compute task vectors for both previous and current tasks                                                                                          Transformer-based models, including CL-DETR [28],
+using the shared parameters. DuET framework is built                                                                                          SDDGR [19], and VLM-PL [20], use Deformable DETR
+upon two components: DuET Module & Incremental Head.                                                                                          [52] to enhance CIOD. CL-DETR applies knowledge distil-
+DuET Module merges these task vectors through dynamic                                                                                         lation on labels with exemplar replay, SDDGR integrates
+layer-wise retention and adaptation factors, effectively mit-                                                                                 generative replay via stable diffusion, and VLM-PL em-
+igating catastrophic forgetting. Meanwhile, the Incremental                                                                                   ploys vision-language pseudo-labeling. However, most
+Head concatenates task-specific parameters from both past                                                                                     CIOD methods rely on exemplars [1, 19, 51] and assume
+and current tasks, enhancing generalization. Unlike prior                                                                                     a static domain. In contrast, DuET proposes an exemplar-
+methods, DuET is object detector-agnostic, seamlessly in-                                                                                     free, unified approach that prevents catastrophic forgetting
+tegrating with diverse detection backbones. Notably, it                                                                                       while incrementally learning new objects across domains.
+enables state-of-the-art real-time object detectors, such as                                                                                  Domain Incremental Object Detection: DIOD focuses on
+YOLO11 [17] and RT-DETR [29], to function as real-time                                                                                        adapting to distribution shifts—such as changes in light-
+incremental object detectors.                                                                                                                 ing, viewpoints, and weather—while maintaining a fixed
+   Additionally, we introduced Directional Consistency                                                                                        object set. LDB [41] tackles DIOD by learning domain
+Loss to further stabilize incremental updates, which mit-                                                                                     biases with frozen base models and employing a nearest-
+igates weight update conflicts during model merging [45,                                                                                      mean classifier for domain selection, while other methods
+49]. Moreover, to jointly quantify catastrophic forgetting                                                                                    [33, 42, 43] primarily target Domain Incremental Learn-
+
+
+
+                                                                                                                                       3122
+ing through prompt-based strategies, domain statistics, and                                                                                                              bounding box annotations exclusively for  \mathcal {C}_t  . While images
+cross-domain concept alignment.                                                                                                                                          in  \mathcal {X}_t  may include objects from previously learned classes
+   Although some DIOD methods support exemplar-free                                                                                                                       \mathcal {C}_{1:t-1}  , these objects remain unlabeled and are treated as
+adaptation, they assume a consistent class set across                                                                                                                    background. This results in a fundamental background shift
+domains and struggle with inter-domain class confu-                                                                                                                      problem [27, 32], where previously learned objects become
+sion. DuET overcomes these limitations by using task                                                                                                                     part of the background in later tasks—an issue absent in
+arithmetic-based model merging to incrementally learn                                                                                                                    prior works like [35].
+class and domain shifts without relying on exemplars.                                                                                                                               To maintain an exemplar-free setting, during task  \mathcal {T}_t  ,
+Task Arithmetic: Task arithmetic has recently emerged                                                                                                                    we have access only to the dataset  \mathcal {D}_t  and do not re-
+as an effective way to modify pre-trained models through                                                                                                                 tain any images or annotations from previous domains
+simple arithmetic operations on model weights. Task-                                                                                                                      \{ \mathcal {D}_1, \mathcal {D}_2, \dots , \mathcal {D}_{t-1} \} . Our objective is to incrementally up-
+Arithmetic [13] showed that task vectors—differences be-                                                                                                                 date the object detection model  \mathcal {M}_{\theta _t}  , parameterized by  \theta _t  ,
+tween fine-tuned and pre-trained model weights—can steer                                                                                                                 using only data from  \mathcal {D}_t  , ensuring that  \mathcal {M}_{\theta _t}  can accurately
+model behaviour. Extensions like Fisher-Merging [31] and                                                                                                                 detect objects from all learned classes  \mathcal {C}_{1:t}  across all en-
+RegMean [16] introduced importance-weighted schemes                                                                                                                      countered domains  \mathcal {D}_{1:t}  .
+using Fisher information and inner-product matrices, but
+they require manual matrix computations. To resolve sign                                                                                                                 3.2. Overview of DuET Approach
+conflicts during model merging, TIES-Merging [45] en-                                                                                                                    To tackle DuIOD, we discuss the DuET approach in this
+forces orthogonality constraints, while DARE [49] reduces                                                                                                                and subsequent sections. As depicted in Figure 3, DuET
+interference using dropout and rescaling. EMR-Merging                                                                                                                    strategically decomposes model parameters into shared (θs )
+[12] aligns task directions and amplitudes through a tuning-                                                                                                             and task-specific (θτt ) components, thereby facilitating ef-
+free strategy, and MagMax [30] mitigates forgetting through                                                                                                              ficient knowledge transfer and modular adaptation. The
+important parameters selection.                                                                                                                                          DuET framework is built upon two core components:
+   Unlike standard TA or the variants mentioned above,                                                                                                                   • DuET Module: This module fuses shared task vectors
+which merge entire task vectors without distinction, DuET                                                                                                                   (τold and τcurr ) through dynamic, layer-wise weighting
+applies layer-wise Task merging with dynamically calcu-                                                                                                                     factors—retention (αl ) and adaptation (βl )—as described
+lated retention-adaptation factors to prevent catastrophic                                                                                                                  in Section 3.4. This design not only preserves previously
+forgetting while improving generalization. In Section 6, we                                                                                                                 acquired knowledge but also incorporates new informa-
+benchmark DuET against existing model-merging baselines                                                                                                                     tion in a balanced manner, effectively countering catas-
+and demonstrate its superiority across multiple object detec-                                                                                                               trophic forgetting.
+tors in the DuIOD task.                                                                                                                                                  • Incremental Head: This component consolidates task-
+                                                                                                                                                                            specific parameters from both past and current tasks,
+3. Methodology                                                                                                                                                              thereby enhancing the model’s generalization across di-
+3.1. Problem formulation                                                                                                                                                    verse detection scenarios. Additionally, Directional
+                                                                                                                                                                            Consistency Loss (LDC , see Section 3.5) enforces align-
+In exemplar-free DuIOD, our goal is to develop a unified
+                                                                                                                                                                            ment in the direction of incremental updates and prevents
+and robust object detection model that incrementally learns
+                                                                                                                                                                            detrimental sign conflicts.
+new object classes and adapts to evolving domain character-
+                                                                                                                                                                         Unlike prior approaches [8, 15, 25], which are optimized
+istics without retaining any past training data (exemplars).
+                                                                                                                                                                         for specific detection backbones, DuET exhibits broad gen-
+           Formally, we define a sequence of tasks as  T  =
+                                                                                                                                                                         eralization across a variety of object detectors [17, 29, 52]
+ \{ \mathcal {T}_1, \mathcal {T}_2, \dots , \mathcal {T}_T \} , where each task  \mathcal {T}_t  introduces a new set
+                                                                                                                                                                         (see Table 3). Moreover, DuET’s training and TA algorithm
+of object classes  \mathcal {C}_t  from a novel domain  \mathcal {D}_t  . The cumula-
+                                                                                                                                                                         are provided in Algorithms 1 & 2 (suppl.).
+tive set of classes and domains encountered up to task  \mathcal {T}_t  is
+denoted by:  \mathcal {C}_{1:t} = \bigcup _{j=1}^{t} \mathcal {C}_j  and  \mathcal {D}_{1:t} = \bigcup _{j=1}^{t} \mathcal {D}_j  , respec-                              3.3. Training Strategy
+tively. Furthermore, following the typical CIOD & DIOD
+assumptions [9, 19, 20, 28, 40, 41], we ensure that:                                                                                                                     Base Task: \protect \mathcal  {T}_1 . Consider a generic, pre-trained object de-
+                                                                                                                                                                         tector \protect \mathcal  {M}_{\theta _0} parameterized by \theta _0 as shown in figure 3. Let
+            \mathcal {C}_t \cap \mathcal {C}_{1:t-1} = \emptyset , \quad \mathcal {D}_t \cap \mathcal {D}_{1:t-1} = \emptyset , \quad \forall \ t \geq 2    (1)          Task \protect \mathcal  {T}_1 introduce new \protect \mathcal  {C}_1 classes from \protect \mathcal  {D}_1 domain. We first
+                                                                                                                                                                         train this model on the dataset \ifmmode \lbrace \else \textbraceleft \fi \mathcal {X}_1, \mathcal {Y}_1\} for Task \protect \mathcal  {T}_1 using
+                                                P(\mathcal {D}_t) \neq P(\mathcal {D}_{t'}) \ \forall \ t \neq t'.                                          (2)          the standard detection loss, \protect \mathcal  {L}_{\text {Detector}} , which is specific to the
+                                                                                                                                                                         object detector being considered. After the first update step,
+For each task  \mathcal {T}_t  , we define the dataset as  \{ \mathcal {X}_t, \mathcal {Y}_t \} , where                                                                  the model’s parameters become:
+ \mathcal {X}_t = \{ x_j^t \}_{j=1}^{\mathcal {N}_t}  consists of input images from  \mathcal {D}_t  that con-
+
+tain only objects from  \mathcal {C}_t  , and  \mathcal {Y}_t = \{ y_j^t \}_{j=1}^{\mathcal {N}_t}  provides                                                                                    \theta _1 \;\; \leftarrow \;\; \theta _0 \;-\; \eta \,\nabla _{\theta }\,\mathcal {L}_{\text {Detector}}\bigl (\theta _0; \mathcal {X}_1, \mathcal {Y}_1\bigr ),    (3)
+
+
+
+                                                                                                                                                                  3123
+Figure 3. Overview of the proposed DuET framework for exemplar-free Dual Incremental Object Detection (DuIOD).
+Left: To setup DuIOD task, we illustrate a sequence of three tasks  \{\mathcal {T}_1,\,\mathcal {T}_2,\,\mathcal {T}_3\} , each introducing new object classes (e.g.
+ \{\textit {car, truck}\}, \{\textit {person, bus}\}, \{\textit {rider, bike, motor}\} ) under different domain shifts (Night Sunny, Daytime Sunny, Daytime Foggy) respec-
+tively. A generic object detector  \mathcal {M}_{\theta _0}  is first fine-tuned on  \mathcal {T}_1  , yielding parameters  \theta _{1}  , the parameters of the model at every Task are
+decomposed into shared ( \theta _{s}  ) and task-specific ( \theta _{\tau _1}  ) parameters. Subsequently, for each incremental Task ( \mathcal {T}_t, t \geq 2), the shared param-
+eters are merged via DuET Module while the Incremental Head concatenates the task-specific parameters from the old and current Task,
+ \theta _{\tau _t}  &  (\theta _{\tau _{t-1}})_{\text {incre}}  respectively. During the Inference Phase, the merged incremental weights  \theta _1, (\theta _2)_{\text {incre}}\ \& \ (\theta _3)_{\text {incre}}  are used to detect
+
+objects from the respective cumulative sets of classes  \mathcal {C}_1, \mathcal {C}_{1:2} \ \& \ \mathcal {C}_{1:3}  . Top-Right: We depict the decomposition of  \theta _{s}  &  \theta _{\tau }  for a generic,
+backbone-agnostic object detector  \mathcal {M}_{\theta }  , with the DuET framework validated across a variety of object detectors (e.g. YOLO11 [17], RT-
+DETR [29]). Bottom-Right: We zoom in on the DuET Module, which merges the old and current shared task vectors ( \tau _{old}, \tau _{curr}  ) using
+layer-wise retention (\alpha _l ) and adaptation (\beta _l ) factors as per equation 12 (zoomed-in for best view).
+where \eta  is the learning rate.                                                                                                                                                                   help in localization and classification of the newly intro-
+                  At every incremental step, we decompose the model pa-                                                                                                                             duced \protect \mathcal  {C}_1 classes. As illustrated in Figure 3, for inference
+rameters into shared parameters \theta _s , which are common                                                                                                                                        on the base task \protect \mathcal  {T}_1 , we directly employ \protect \mathcal  {M}_{\theta _1} .
+across all incremental tasks, and task-specific parameters                                                                                                                                          Incremental Tasks \ifmmode \lbrace \else \textbraceleft \fi \mathcal {T}_2, \mathcal {T}_3\dots , \mathcal {T}_T\}. For each incremen-
+\theta _{\tau _t} , which evolve with each incremental step. For instance,                                                                                                                          tal task ( \mathcal {T}_t, t \geq 2), the model encounters a new set of
+in YOLO11 [17], the backbone and neck components, re-                                                                                                                                               classes \protect \mathcal  {C}_t from domain \protect \mathcal  {D}_t . We follow sequential fine-
+sponsible for multi-scale feature extraction and feature re-                                                                                                                                        tuning and initialize \theta _t \gets \theta _{t-1} , following [30], but this
+finement, constitute \theta _s , whereas the detection head, which                                                                                                                                  time, we train the model using \protect \mathcal  {L}_{\text {Total}} (eq. 3.5), which incor-
+is responsible for final task-specific object localization and                                                                                                                                      porates a modified Distillation Loss \protect \mathcal  {L}_{\text {Distill}}^{*} to help preserve
+classification, forms \theta _{\tau _t} . Hence, for Task \protect \mathcal  {T}_1 , we have:                                                                                                       knowledge from previously learned tasks and Directional
+                                                                                                                                                                                                    Consistency Loss \protect \mathcal  {L}_{\text {DC}} to help resolve sign conflicts and
+                    \theta _0 \;\rightarrow \; \bigl [\theta _{s_0}, \,\theta _{\tau _0}\bigr ], \quad \theta _1 \;\rightarrow \; \bigl [\theta _{s_1}, \,\theta _{\tau _1}\bigr ].    (4)
+                                                                                                                                                                                                    encourage stable parameter updates, along with the object-
+After Task \protect \mathcal  {T}_1 training, following the task vector definition                                                                                                                  detector loss \protect \mathcal  {L}_{\text {Detector}} (see section 3.5). Hence, after every
+from [13], we compute the first task vector as:                                                                                                                                                     incremental Task \protect \mathcal  {T}_t , the model parameters are updated as:
+                                                             \tau _{s_1} \;=\; \theta _{s_1} \;-\; \theta _{s_0},                                                                      (5)                              \label {eq:theta_update} \theta _t \;\; \leftarrow \;\; \theta _{t-1} \;-\; \eta \,\nabla _{\theta }\,\mathcal {L}_{\text {Total}}\bigl (\theta _{t-1}; \mathcal {X}_t, \mathcal {Y}_t\bigr ).    (6)
+Here \tau _{s_1} effectively captures how the shared parameters                                                                                                                                     As before, we then decompose the updated parameters into:
+must shift to accommodate the first Task, while the remain-
+ing parameters, \theta _{\tau _1} constitute the task-specific weights that                                                                                                                                          \theta _{t-1} \;\rightarrow \; \bigl [\theta _{s_{t-1}}, \,\theta _{\tau _{t-1}}\bigr ], \quad \theta _{t} \;\rightarrow \; \bigl [\theta _{s_{t}}, \,\theta _{\tau _{t}}\bigr ].                    (7)
+
+
+
+                                                                                                                                                                                             3124
+Now, to incorporate the knowledge from current domain \protect \mathcal  {D}_t                                                                                                                                                        Hence, unlike second-order methods (e.g., Fisher Merging
+and current classes \protect \mathcal  {C}_t into the shared parameters \theta _s without                                                                                                                                             [31]) that require computing parameter importance matri-
+discarding knowledge of older tasks \protect \mathcal  {T}_{1:t-1} , we define two                                                                                                                                                    ces, the p-factor captures a simpler, local notion of impor-
+shared task-vectors as:                                                                                                                                                                                                               tance. It forgoes expensive matrix approximations yet still
+                                                                                                                                                                                                                                      encodes how far each layer’s weights have drifted from the
+                \label {eq:old_new_tau} \tau _{\text {old}} \;=\; \theta _{s_{t-1}} \;-\; \theta _{s_{0}}\footnotemark [1], \quad \tau _{\text {curr}} \;=\; \theta _{s_{t}} \;-\; \theta _{s_{0}}\footnotemark [1].     (8)
+                                                                                                                                                                                                                                      original baseline. Given these per-layer coefficients, the up-
+ The shared task vectors, \tau _{\text {old}} and \tau _{\text {curr}} , play a crucial role                                                                                                                                          dated shared weights for layer l are:
+in capturing the evolution of the shared parameters as the
+model transitions between tasks. Specifically, \tau _{\text {old}} repre-                                                                                                                                                                                         \label {merging_eqn} (\theta _{s_t}^l)_{\text {incre}} = \theta _{s_0}^l + \alpha _l\,\tau _{\text {old}}^l + \beta _l\,\tau _{\text {curr}}^l.    (12)
+sents the cumulative update from the initial pre-trained state
+                                                                                                                                                                                                                                      Applying this across all layers yields (\theta _{s_t})_{\text {incre}} . Simultane-
+up to the last incremental phase, effectively embedding the
+                                                                                                                                                                                                                                      ously, the Incremental Head concatenates the current task-
+knowledge of all previous tasks. In contrast, \tau _{\text {curr}} captures
+                                                                                                                                                                                                                                      specific parameters with the previous ones:
+the immediate update introduced by the current Task. This
+separation allows us to precisely balance the retention of                                                                                                                                                                                                                 (\theta _{\tau _t})_{\text {incre}} \gets \bigl [\theta _{\tau _t} \,;\, (\theta _{\tau _{t-1}})_{\text {incre}}\bigr ]                   (13)
+previously learned features with the integration of new in-
+formation, thereby mitigating catastrophic forgetting while                                                                                                                                                                           Finally, combining these updated shared and task-specific
+enhancing the model’s generalization capability. By isolat-                                                                                                                                                                           components produces the overall incremental weights:
+ing these vectors, the proposed DuET framework benefits
+                                                                                                                                                                                                                                                                                                                                                                                                                     (14)
+from clearly delineating what knowledge needs to be pre-
+                                                                                                                                                                                                                                                                       (\theta _t)_{\text {incre}} \gets \bigl [(\theta _{s_t})_{\text {incre}},\, (\theta _{\tau _t})_{\text {incre}}\bigr ] 
+served versus what can be adapted.                                                                                                                                                                                                    which initialize the model for the subsequent Task, i.e.,
+                                                                                                                                                                                                                                      \theta _{t+1} \gets (\theta _t)_{\text {incre}} .
+3.4. Fusing task vectors on shared weights
+                                                                                                                                                                                                                                                            As illustrated in Figure 3, for inference on incremental
+The core of DuET approach lies in the DuET Module,                                                                                                                                                                                    tasks (t \geq 2), we employ the merged incremental models
+which performs the dynamic integration of \tau _{\text {old}} and \tau _{\text {curr}}                                                                                                                                                \protect \mathcal  {M}_{\theta _t} , parameterized by the reconstructed weights (\theta _t)_{\text {incre}} ,
+to update the shared weights (Figure 3). Although these                                                                                                                                                                               to detect \protect \mathcal  {C}_{1:t} classes across domains \protect \mathcal  {D}_{1:t} following the
+retention-adaptation factors are empirically motivated, they                                                                                                                                                                          evaluation protocol detailed in Section 4.2.
+can be viewed through a stability-plasticity lens in incre-
+mental learning. Interpreting \tau _{\text {old}}^l and \tau _{\text {curr}}^l as “directions”                                                                                                                                        3.5. Loss objectives
+in parameter space—one encoding the cumulative shifts for                                                                                                                                                                             For the base task (t=1), we optimize the object detector
+past tasks and the other the shift introduced by the new                                                                                                                                                                              using the standard detection loss, \protect \mathcal  {L}_{\text {Detector}} , which is specific
+Task—our layer-wise \alpha _l and \beta _l define a linear combination                                                                                                                                                                to the base detector and is responsible for object localiza-
+that balances preserving old knowledge (\alpha _l \approx 1) versus in-                                                                                                                                                               tion and classification. For incremental tasks (t \geq 2), we
+tegrating new information (\beta _l \approx 1). By comparing \delimiter "026B30D \tau _{\text {old}}^l\|                                                                                                                              augment \protect \mathcal  {L}_{\text {Detector}} with a modified Distillation Loss \protect \mathcal  {L}_{\text {Distill}}^{*}
+and \delimiter "026B30D \tau _{\text {curr}}^l\| at each layer, we obtain a first-order approxi-                                                                                                                                      (discussed in Appendix B), along with our Directional
+mation of “which update dominates,” adaptively favoring                                                                                                                                                                               Consistency Loss \protect \mathcal  {L}_{\text {DC}} (discussed below) scaled by scaling
+retention when \delimiter "026B30D \tau _{\text {old}}^l\| is large and plasticity when \delimiter "026B30D \tau _{\text {curr}}^l\|                                                                                                  coefficients  \lambda _{\text {Distill}}  and  \lambda _{\text {DC}}  respectively.
+is large. Geometrically, this ensures the merged parame-                                                                                                                                                                                 Formally, the total loss for task t is:
+ters lie neither too close to the old solution nor fully dom-
+inated by new updates, effectively mitigating catastrophic
+forgetting and enhancing generalization. For each layer                                                                                                                                                                                                                                                                                                                                                              (15)
+l \in \{1, \dots , \mathcal {L}\}, we define a p-factor:
+
+                                                                 p_l = \frac {\|\tau _{\text {old}}^l\| - \|\tau _{\text {curr}}^l\|}{\|\tau _{\text {old}}^l + \tau _{\text {curr}}^l\| + \epsilon },                   (9)          Directional Consistency Loss (\mathcal {L}_{\text {DC}} ). Incremental learn-
+                                                                                                                                                                                                                                      ing suffers from conflicting weight updates during model-
+where \delimiter "026B30D \cdot \| denotes the \ell _1 norm and \epsilon  ensures numerical                                                                                                                                           merging [45], which can destabilize the merging of shared
+stability. Mapping p_l via a hyperbolic tangent scaled by \gamma                                                                                                                                                                      parameters. We introduce the Directional Consistency Loss
+gives:                                                                                                                                                                                                                                (DC Loss) to address this. This loss penalizes updates in the
+                                             \delta _l = \gamma \,\tanh (p_l),        (10)                                                                                                                                            shared parameter space that diverge in direction relative to
+                                                                                                                                                                                                                                      previous incremental changes, thus promoting a consistent
+After clamping \delta _l to [-\gamma , \gamma ], and adding a base coefficient
+                                                                                                                                                                                                                                      evolution of the shared task vectors.
+\alpha _{\text {base}} , we define:
+                                                                                                                                                                                                                                         Specifically, for t \geq 2, we define the DC Loss between
+          \alpha _l = \alpha _{\text {base}} + \operatorname {clamp}(\delta _l, -\gamma , \gamma ), \quad \beta _l = 1 - \alpha _l.                                                                                     (11)          consecutive tasks t and t-1 as:
+      1 Task vectors are computed assuming access to the pre-trained model
+
+for all tasks, a standard assumption in task vector-based methods [12, 13].
+                                                                                                                                                                                                                                                                                                                                                                                                                     (16)
+
+
+
+
+                                                                                                                                                                                                                               3125
+Here, the dot product quantifies the alignment between suc-                                                                                                                                                   to unseen classes and is computed as:
+cessive updates: a negative value indicates a sign con-
+flict (i.e., the current update opposes the previous direc-                                                                                                                                                                                                                                                                                                                                   (18)
+tion), which the ReLU penalizes. This mechanism enforces
+a more coherent update trajectory for the shared parame-                                                                                                                                                      Here,  \text {mAP}_{\text {unseen}}^{\mathcal {T}_j}  measures model performance on previ-
+ters, effectively mitigating catastrophic forgetting. Conse-                                                                                                                                                  ously unseen classes, while  \text {mAP}_{\text {ref}}  is the reference mAP
+quently, the DC Loss remains object-detector agnostic, as it                                                                                                                                                  obtained by training solely on these unseen classes. A
+depends solely on the evolution of shared parameter updates                                                                                                                                                   higher Avg GI indicates better adaptability to new cate-
+                                                                                                                                                                                                              gories. A detailed discussion, including metric formulations
+4. Experimental Details                                                                                                                                                                                       and rationale, is provided in Appendix A.
+                                                                                                                                                                                                                 Moreover, unlike prior works, we do not consider the
+4.1. Datasets                                                                                                                                                                                                 upper-bound joint-training baseline, as Avg RI and Avg GI
+Following prior works [6, 21, 26, 41, 44], we evaluate                                                                                                                                                        compute relative performance retention and generalization
+DuIOD using two dataset series: Pascal Series and Di-                                                                                                                                                         through direct ratio-based comparisons. This ensures that
+verse Weather Series. Pascal Series includes four do-                                                                                                                                                         the overall metric (RAI) directly reflects catastrophic for-
+mains—Pascal VOC [7], Clipart, Watercolor, and Comic                                                                                                                                                          getting without biases introduced by architecture-specific
+[14]. Pascal VOC and Clipart share 20 object categories,                                                                                                                                                      joint-training performance.
+while Watercolor and Comic contain six, forming subsets                                                                                                                                                       5. Results & Discussion
+of the former. Similarly, in Diverse Weather Series, we
+consider three diverse weather conditions—Daytime Sunny,                                                                                                                                                      5.1. Quantitative Results
+Night Sunny, and Daytime Foggy—with seven common                                                                                                                                                                                                                                                           To evaluate the effectiveness of the DuET, we compare
+object categories, sourced from BDD-100k [48], FoggyC-                                                                                                                                                                                                                                                     it against five baselines: Sequential Fine-Tuning, LwF
+ityscapes [5], and Adverse-Weather [11]. The training                                                                                                                                                                                                                                                      [25] and ERD [8] (common IOD methods), LDB [41]
+sequence followed for both dataset series is provided in                                                                                                                                                                                                                                                   and CL-DETR [28] (current open-source SOTA in DIOD
+Appendix A- Table S1, and dataset statistics are de-                                                                                                                                                                                                                                                       and CIOD). We re-implemented all under the proposed
+tailed in Appendix G.                                                                                                                                                                                                                                                                                      DuIOD setting, reporting the best results across seven ex-
+                                                                                                                                                                                                                                                                                                           periments—five two-phase and two multi-phase. Results
+4.2. Proposed Evaluation Protocol and Metrics                                                                                                                                                                                                                                                              from two two-phase and two multi-phase experiments are
+To comprehensively evaluate different methods on the                                                                                                                                                                                                                                                       in Table 1 and Table 2, while comprehensive results from
+DuIOD task, we propose a new evaluation protocol (see                                                                                                                                                                                                                                                      all experiments are provided in Appendix E. Moreover,
+Appendix A- Table                                                                                S1). Existing metrics such as                                                                                                                                                                             as detailed in Appendix C3, DuET maintains a consis-
+                                                          \scalebox {0.95}{$ \text {Avg RI} = \frac {1}{T - 1} \sum _{i=1}^{T - 1} RI_{\mathcal {D}_i}, \RI_{\mathcal {D}_i} = \frac {\text {mAP}_{\text {old}}^{\mathcal {T}_T}(\mathcal {D}_i[\mathcal {C}_i])}{\text {mAP}_{\text {new}}^{\mathcal {T}_i}(\mathcal {D}_i[\mathcal {C}_i])}. $} 
+ \mathcal {F}_{map}  [4], RSD & RPD [32], and SPmAP [47], primarily as-                                                                                                                                                                                                                                    tent performance irrespective of the randomness in class-
+sess catastrophic forgetting and do not capture the model’s                                                                                                                                                                                                                                                domain orders.
+ability to generalize to unseen classes, which is critical for                                                                                                                                                                                                                                                             We begin with naı̈ve Sequential Fine-Tuning using
+DuIOD. Since DuIOD goes beyond preserving old knowl-                                                                                                                                                                                                                                                       YOLO11n                                     [17] as the base detector, where we observe se-
+edge (retention), it also demands evaluating how well the                                                                                                                                                                                                                                                  vere                         catastrophic           forgetting, with Avg RI < 1\% across
+model can adapt to unseen categories (adaptability). We                                                                                                                                                                                                                                                    all                experiments.                      LwF and ERD, both implemented on
+introduce the Retention-Adaptability Index (RAI) to ad-                                                                                                                                                                                                                                                    YOLO11n                                    by  modifying     the Ultralytics pipeline [17] to in-
+dress this requirement. RAI is defined as the mean of the                                                                                                                                                                                                                                                  corporate                                 distillation  losses (LwF) and the Elastic Response
+Average Retention Index (Avg RI) and Average Generaliza-                                                                                                                                                                                                                                                   Selection                                 algorithm    (ERD),   show moderate RAI improve-
+tion Index (Avg GI).                                                                                                                                                                                                                                                                                       ment                             but       gives   poor   results in multi-phase experiments
+           Avg RI quantifies the model’s ability to retain past                                                                                                                                                                                                                                            (Table                                 2) compared      to DuET.   On the DIOD side, LDB2
+knowledge and is computed as:                                                                                                                                                                                                                                                                              with VitDet [24] as the base detector suffers from severe
+                                                                                                                                                                                                                                                                                                           catastrophic forgetting, particularly in cross-domain uneven
+                                                                                                                                                                                                                                                                                                           class shifts (Table 1). On the CIOD side, CL-DETR2
+                                                                                                                                                                                                                                                       (17)
+                                                                                                                                                                                                                                                                                                           with Deformable DETR [52] struggles under severe domain
+                                                                                                                                                                                                                                                                                                           shifts despite having more trainable parameters. In contrast,
+Here,  \text {mAP}_{\text {old}}^{\mathcal {T}_T}  represents the final-task performance on pre-                                                                                                                                                                                                           DuET consistently outperforms all methods despite having
+viously learned classes, while  \text {mAP}_{\text {new}}^{\mathcal {T}_i}  denotes the initial                                                                                                                                                                                                            significantly fewer trainable parameters (Table 1) while also
+performance when the classes were first encountered. A                                                                                                                                                                                                                                                     demonstrating strong generalization across multiple object
+higher Avg RI implies better retention of past knowledge                                                                                                                                                                                                                                                   detection architectures (Table 3).
+while lower values indicate catastrophic forgetting.                                                                                                                                                                                                                                                                       DuET achieves an RAI improvement of +9.82% and
+           Similarly, Avg GI quantifies the model’s generalization                                                                                                                                                                                                                                         +13.12% while preserving 87.44% and 89.30% Avg RI
+
+
+
+                                                                                                                                                                                              3126
+Table 1. Detailed results of various methods on Daytime Sunny [1:4] \rightarrow  Night Sunny [5:7], where the expanded columns (\protect \mathcal  {T}_1 : Daytime
+Sunny [1:4], \protect \mathcal  {T}_2 : Night Sunny [5:7]) show \protect \text  {mAP@}0.5\%, best among the columns in bold, second best underlined.
+                                                                                                                                                               T1                            T2: Night Sunny [5:7]
+                                                                                                                                          Trainable         Daytime             Old            New                 Unseen               Avg RI    Avg GI          RAI
+                                        Method                                                                  Base Detector
+                                                                                                                                         Params (M)          Sunny           Daytime          Night         Night        Daytime         (%)       (%)            (%)
+                                                                                                                                                              [1:4]         Sunny [1:4]    Sunny [5:7] Sunny [1:4] Sunny [5:7]
+                         Sequential FT                                                                            YOLO11n                    2.58           49.40±0.3         0.00±0.0      62.20±0.5     12.60±0.4     35.90±0.3     0.00±0.0    45.88±0.6    22.94±0.3
+                  \protect \mathrm  {LwF}_{\textcolor {MidnightBlue}{\text {ECCV'}16}} [25]                       YOLO11n                    2.58           49.40±0.2        27.60±0.4       0.34±0.6     21.30±0.3      0.67±0.5     55.87±0.3   21.88±0.7    38.88±0.6
+                    \protect \mathrm  {ERD}_{\textcolor {MidnightBlue}{\text {CVPR'}22}} [8]                      YOLO11n                    2.58           49.40±0.5        33.00±0.4      34.00±0.3     26.10±0.6     29.10±0.7     66.80±0.5   53.04±0.3    59.92±0.4
+                \protect \mathrm  {LDB}_{\textcolor {MidnightBlue}{\text {AAAI'}24}}\footnotemark [2] [41]          VitDet                  110.52          45.30±0.6         0.50±0.3      15.10±0.4      0.30±0.5     16.90±0.7     1.10±0.2    22.41±0.3    11.76±0.6
+ \protect \mathrm  {CL-DETR}_{\textcolor {MidnightBlue}{\text {CVPR'}23}}\footnotemark [2] [28]                Deformable DETR              39.85           46.29±0.4        27.41±0.5      31.94±0.6     19.85±0.3     32.55±0.4     59.21±0.2   54.96±0.5    57.09±0.4
+                         DuET (Ours)                                                                              YOLO11n                    2.58           49.40±0.2        43.50±0.1      22.20±0.3     31.60±0.2     27.40±0.1     88.06±0.2   56.95±0.1    72.51±0.2
+
+
+  Table 2. Results of two-phase and multi-phase experiments on DuIOD task. Best among the columns in bold, second best underlined.
+                                                                                                                                                                                    Watercolor [1:3] → Comic [4:6]          Night Sunny [1:2] → Daytime Sunny [3:4]
+                                                                                                                                  VOC [1:10] → Clipart [11:20]
+            Method                                                                           Base Detector                                                                          → Clipart [7:13] → VOC [14:20]                  → Daytime Foggy [5:7]
+                                                                                                                        Avg RI (%)          Avg GI (%)          RAI (%)          Avg RI (%)    Avg GI (%)     RAI (%)      Avg RI (%)      Avg GI (%)         RAI (%)
+  Sequential FT                                                                       YOLO11n                            0.75±0.2            12.86±0.4           6.81±0.3          0.00±0.0     11.05±0.5     5.53±0.3      0.00±0.0        30.51±0.6         15.26±0.5
+    LwF [25]                                                                          YOLO11n                            72.64±0.3           33.74±0.5          53.19±0.4         52.66±0.6     17.01±0.4     34.84±0.3     27.94±0.7       23.78±0.5         25.86±0.6
+    ERD [8]                                                                           YOLO11n                            68.66±0.4           43.68±0.3          56.17±0.6         54.76±0.5     41.13±0.4     47.95±0.7     44.60±0.6       39.40±0.5         42.00±0.3
+   LDB2 [41]                                                                            ViTDet                           66.89±0.5           18.76±0.3          42.83±0.4         86.08±0.6     19.57±0.5     52.83±0.4     50.50±0.6       5.42±0.7          27.96±0.5
+ CL-DETR2 [28]                                                                     Deformable DETR                       68.29±0.3           40.72±0.4          54.51±0.3         71.73±0.5     36.63±0.6     54.18±0.4     64.26±0.3       43.46±0.5         53.86±0.6
+  DuET (Ours)                                                                         YOLO11n                            87.44±0.2           44.54±0.1          65.99±0.3         89.30±0.2     42.60±0.1     65.95±0.2     88.57±0.2       41.92±0.1         65.25±0.2
+
+
+Table 3. Results of proposed DuET framework on Daytime Sunny                                                                                                                            Appendix E2. In VOC [1:10] → Clipart [11:20], LwF
+[1:4] → Night Sunny [5:7] experiment with different base detec-                                                                                                                         and LDB misclassify the cow class (introduced in \protect \mathcal  {T}_1 : VOC
+tors. Best among the columns in bold, second best underlined.                                                                                                                           [1:10]) as horse or sheep (both introduced in \protect \mathcal  {T}_2 : Cli-
+ Method                                                  Base Detector
+                                                                                                                 Trainable
+                                                                                                                                  GFLOPs
+                                                                                                                                             Avg RI      Avg GI        RAI              part [11:20]). While ERD and CL-DETR correctly clas-
+                                                                                                                Params (M)                     (%)         (%)         (%)
+                                           ViTDet [24]                                                            110.52          1829.61    27.55±0.3   28.22±0.8   27.89±0.5          sify it, they exhibit significantly lower confidence scores
+                                      Deformable DETR [52]                                                         39.85           11.77     84.45±0.2   33.45±0.1   58.95±0.2
+ DuET
+                                         RT-DETR-l [29]                                                            32.00           103.4     47.73±0.2   21.00±0.1   34.37±0.2
+                                                                                                                                                                                        compared to DuET. A similar pattern is observed for the
+ (Ours)
+                                         RT-DETR-x [29]                                                            65.49           222.5     56.39±0.2   24.15±0.1   40.27±0.2          person and motorbike classes, both introduced in \protect \mathcal  {T}_2 ,
+                                          YOLO11n [17]                                                             2.58             6.3      88.06±0.2   56.95±0.1   72.51±0.2
+                                          YOLO11x [17]                                                             56.84           194.4     96.88±0.2   42.41±0.1   69.18±0.2          where only DuET correctly detects both objects in the un-
+                                                                                                                                                                                        seen VOC [11:20], while competing methods mostly fail.
+Table 4. Ablations of DuET framework with different components
+                                                                                                                                                                                           Similarly, in Daytime Sunny [1:4] → Night Sunny [5:7],
+and losses on VOC [1:10] \rightarrow  Clipart [11:20] with YOLO11n as
+base detector.                                                                                                                                                                          the car class (introduced in \protect \mathcal  {T}_1 : Daytime Sunny [1:4]) un-
+                                                                                                                                                                                        dergoes a severe domain shift when evaluated in unseen
+                                                Incremental                                                  DuET                           Avg RI       Avg GI       RAI               Night Sunny [1:4]. As a result, most methods fail to detect
+ Seq FT                                                                                                               L∗Distill     LDC
+                                                   Head                                                      Module                           (%)          (%)         (%)
+           ✗                                         ✗                                                         ✗         ✗           ✗         0.5         9.13       4.82              a majority of car instances, instead misclassifying them
+           ✓                                         ✗                                                         ✗         ✗           ✗       0.75         12.86        6.81             as background, because of the background shift challenge
+           ✓                                         ✓                                                         ✗         ✗           ✗       24.75        33.36       29.06
+           ✓                                         ✓                                                         ✓         ✗           ✗       75.00        37.26       56.13             in DuIOD. (see Appendix F for more details). However,
+           ✓                                         ✓                                                         ✓         ✓           ✗       87.06        37.75       62.41             DuET effectively overcomes this challenge by correctly de-
+           ✓                                         ✓                                                         ✓         ✓           ✓       87.44        44.54       65.99
+                                                                                                                                                                                        tecting most of the car instances (improving mAPTcar2 from
+on the Pascal Series two-phase and multi-phase experi-                                                                                                                                  49.4 to 71.8). Similar misclassifications are observed for the
+ments, respectively. Similarly, on the Diverse Weather Se-                                                                                                                              truck class, introduced in \protect \mathcal  {T}_2 : Night Sunny [5:7], where
+ries, DuET achieves an RAI improvement of +12.59% and                                                                                                                                   most methods struggle to detect it in unseen Daytime Sunny
++11.39% while preserving 88.06% and 88.57% Avg RI on                                                                                                                                    [5:7], while DuET provides consistent detections. These
+the two-phase and multi-phase experiments, respectively.                                                                                                                                qualitative results highlight the effectiveness of DuET in
+                                                                                                                                                                                        seamlessly adapting to unseen classes in new domains.
+5.2. Qualitative Analysis
+                                                                                                                                                                                        6. Main Ablation Studies
+In Figure 4, we present qualitative comparisons of different
+methods on two-phase experiments, while additional qual-                                                                                                                                This section covers the main ablation studies, while ex-
+itative results on multi-phase experiments are provided in                                                                                                                              tended ablations, including the impact of loss compo-
+    2 CL-DETR [28] relies on a DETR-based framework with bipartite                                                                                                                      nents, hyperparameter sensitivity analysis, the influence
+matching and cannot be trivially adapted to YOLO11. LDB [41], de-                                                                                                                       of random class-domain order, and complexity analysis,
+signed for learning domain biases, was unable to handle simultaneous                                                                                                                    are provided in Appendix C.
+class-domain shifts of DuIOD with YOLO11 (often yielding 0 mAP and at
+least a 40% drop in RAI compared to its original backbone), so we com-                                                                                                                  Role of Sequential Fine-tuning. While DuIOD inher-
+pare each method on its own backbone.                                                                                                                                                   ently involves sequential learning, we compare independent
+
+
+
+                                                                                                                                                                                 3127
+Figure 4. Qualitative comparisons on two-phase experiments for different methods on the DuIOD task. The top two rows display
+detection results on unseen classes: Clipart [1:10] & VOC [11:20], for: VOC [1:10] → Clipart [11:20] experiment. Similarly, the bottom
+two rows show detection results on unseen classes: Night Sunny[1:4] & Daytime Sunny[5:7], for: Daytime Sunny[1:4] → Night Sunny[5:7]
+experiment (zoomed-in for best view).
+
+                                                                                               As shown in Table 4 (rows five and six), both losses con-
+                                                                                               tribute significantly. While L∗Distill brings a substantial im-
+                                                                                               provement in Avg RI by helping to retain knowledge from
+                                                                                               previous tasks, LDC further enhances Avg GI, thereby im-
+                                                                                               proving the model’s generalization capability. The combi-
+                                                                                               nation of both losses yields the best performance, achieving
+                                                                                               the highest Avg RI and Avg GI, highlighting their critical
+                                                                                               role in the DuET approach.
+                                                                                               Comparison with other model-merging algorithms. In
+                                                                                               Figure 5, we compare the performance of related TA ap-
+Figure 5. Impact of \protect \mathcal  {L}_{DC} on (a) improving RAI and (b) reducing          proaches with the proposed approach. The results indicate
+sign conflicts across different TA approaches, evaluated on VOC                                that LDC improves RAI by an average of 9.67% while sig-
+[1:10] → Clipart [11:20] using YOLO11n with Incremental Head                                   nificantly reducing sign conflicts by an average of 34%, av-
+and sequential fine-tuning.                                                                    eraged across all TA approaches, with DuET achieving the
+                                                                                               best overall performance.
+(first row, Table 4) vs. sequential fine-tuning (second row)
+in DuET framework, observing a significant improvement                                         7. Conclusions
+in Avg GI and, hence, RAI with the latter, aligning with the
+findings in [30], highlighting its importance in DuIOD.                                        In this paper, we introduced DuET, a task-arithmetic-driven
+                                                                                               solution for robust IOD, enabling models to learn new ob-
+Effectiveness of DuET Module and Incremental Head.                                             ject categories while generalizing across evolving domains
+Next, we evaluate the effectiveness of the DuET Module                                         incrementally. Unlike previous works that focus on either
+and Incremental Head in the DuET framework. Incremen-                                          class or domain shifts, DuET integrates both, making it
+tal Head (third row) brings a substantial improvement in                                       practical for real-world applications like autonomous driv-
+both Avg RI and Avg GI over Seq FT. This highlights the                                        ing and surveillance. We demonstrated its effectiveness
+importance of concatenating task-specific parameters from                                      across diverse object detectors like YOLO11 & RT-DETR
+previous and current tasks, thereby enhancing the model’s                                      through extensive experiments on the Pascal Series and Di-
+generalization capability. Incorporating the DuET Module                                       verse Weather Series datasets. Additionally, we proposed
+further leads to a significant improvement in both Avg RI                                      Directional Consistency Loss to mitigate sign conflicts and
+and Avg GI (fourth row), effectively mitigating catastrophic                                   a Retention-Adaptability Index to comprehensively evalu-
+forgetting while enhancing generalization.                                                     ate retention and adaptation. DuET opens a new research
+Impact of L∗Distill and LDC . We further investigate the im-                                   direction in IOD, providing a promising framework for con-
+pact of L∗Distill and LDC in the proposed DuET approach.                                       tinual learning and domain adaptation.
+
+
+
+                                                                                        3128
+References                                                                         free high-performance model merging. arXiv preprint
+                                                                                   arXiv:2405.17461, 2024. 3, 5
+ [1] Manoj Acharya, Tyler L Hayes, and Christopher Kanan.
+                                                                              [13] Gabriel Ilharco, Marco Tulio Ribeiro, Mitchell Wortsman,
+     Rodeo: Replay for online object detection. arXiv preprint
+                                                                                   Suchin Gururangan, Ludwig Schmidt, Hannaneh Hajishirzi,
+     arXiv:2008.06439, 2020. 2
+                                                                                   and Ali Farhadi. Editing models with task arithmetic. arXiv
+ [2] Fabio Cermelli, Antonino Geraci, Dario Fontanel, and Bar-                     preprint arXiv:2212.04089, 2022. 2, 3, 4, 5
+     bara Caputo. Modeling missing annotations for incremental
+                                                                              [14] Naoto Inoue, Ryosuke Furuta, Toshihiko Yamasaki, and Kiy-
+     learning in object detection. In Proceedings of the IEEE/CVF
+                                                                                   oharu Aizawa. Cross-domain weakly-supervised object de-
+     Conference on Computer Vision and Pattern Recognition,
+                                                                                   tection through progressive domain adaptation. In Proceed-
+     pages 3700–3710, 2022. 2
+                                                                                   ings of the IEEE conference on computer vision and pattern
+ [3] Jingzhou Chen, Shihao Wang, Ling Chen, Haibin Cai, and                        recognition, pages 5001–5009, 2018. 6
+     Yuntao Qian. Incremental detection of remote sensing ob-                 [15] Shilong Jia, Tingting Wu, Yingying Fang, Tieyong Zeng,
+     jects with feature pyramid and knowledge distillation. IEEE                   Guixu Zhang, and Zhi Li. Purified distillation: Bridging do-
+     Transactions on Geoscience and Remote Sensing, 60:1–13,                       main shift and category gap in incremental object detection.
+     2020. 2                                                                       In Proceedings of the 32nd ACM International Conference
+ [4] Li Chen, Chunyan Yu, and Lvcai Chen. A new knowledge                          on Multimedia, pages 1197–1205, 2024. 2, 3
+     distillation for incremental object detection. In 2019 Interna-          [16] Xisen Jin, Xiang Ren, Daniel Preotiuc-Pietro, and Pengxiang
+     tional Joint Conference on Neural Networks (IJCNN), pages                     Cheng. Dataless knowledge fusion by merging weights of
+     1–7. IEEE, 2019. 2, 6                                                         language models. arXiv preprint arXiv:2212.09849, 2022. 3
+ [5] Marius Cordts, Mohamed Omran, Sebastian Ramos, Timo                      [17] Glenn Jocher and Jing Qiu. Ultralytics yolo11, 2024. 2, 3,
+     Rehfeld, Markus Enzweiler, Rodrigo Benenson, Uwe                              4, 6, 7
+     Franke, Stefan Roth, and Bernt Schiele. The cityscapes
+                                                                              [18] Mengxue Kang, Jinpeng Zhang, Jinming Zhang, Xiashuang
+     dataset for semantic urban scene understanding. In Proceed-
+                                                                                   Wang, Yang Chen, Zhe Ma, and Xuhui Huang. Alleviat-
+     ings of the IEEE conference on computer vision and pattern
+                                                                                   ing catastrophic forgetting of incremental object detection
+     recognition, pages 3213–3223, 2016. 6
+                                                                                   via within-class and between-class knowledge distillation. In
+ [6] Muhammad Sohail Danish, Muhammad Haris Khan,                                  Proceedings of the IEEE/CVF International Conference on
+     Muhammad Akhtar Munir, M Saquib Sarfraz, and Mohsen                           Computer Vision, pages 18894–18904, 2023. 2
+     Ali. Improving single domain-generalized object detection:               [19] Junsu Kim, Hoseong Cho, Jihyeon Kim, Yihalem Yimolal
+     A focus on diversification and alignment. In Proceedings of                   Tiruneh, and Seungryul Baek. Sddgr: Stable diffusion-based
+     the IEEE/CVF Conference on Computer Vision and Pattern                        deep generative replay for class incremental object detection.
+     Recognition, pages 17732–17742, 2024. 6                                       In Proceedings of the IEEE/CVF Conference on Computer
+ [7] Mark Everingham, Luc Van Gool, Christopher KI Williams,                       Vision and Pattern Recognition, pages 28772–28781, 2024.
+     John Winn, and Andrew Zisserman. The pascal visual object                     1, 2, 3
+     classes (voc) challenge. International journal of computer               [20] Junsu Kim, Yunhoe Ku, Jihyeon Kim, Junuk Cha, and Se-
+     vision, 88:303–338, 2010. 6                                                   ungryul Baek. Vlm-pl: Advanced pseudo labeling ap-
+ [8] Tao Feng, Mang Wang, and Hangjie Yuan. Overcoming                             proach for class incremental object detection via vision-
+     catastrophic forgetting in incremental object detection via                   language model. In Proceedings of the IEEE/CVF Confer-
+     elastic response distillation. In Proceedings of the IEEE/CVF                 ence on Computer Vision and Pattern Recognition, pages
+     conference on computer vision and pattern recognition,                        4170–4181, 2024. 1, 2, 3
+     pages 9427–9436, 2022. 2, 3, 6, 7                                        [21] Madhu Kiran, Marco Pedersoli, Jose Dolz, Louis-Antoine
+ [9] Akshita Gupta, Sanath Narayan, KJ Joseph, Salman Khan,                        Blais-Morin, Eric Granger, et al. Incremental multi-target
+     Fahad Shahbaz Khan, and Mubarak Shah.                  Ow-detr:               domain adaptation for object detection with efficient domain
+     Open-world detection transformer.          In Proceedings of                  transfer. Pattern Recognition, 129:108771, 2022. 6
+     the IEEE/CVF conference on computer vision and pattern                   [22] Dawei Li, Serafettin Tasci, Shalini Ghosh, Jingwen Zhu,
+     recognition, pages 9235–9244, 2022. 1, 2, 3                                   Junting Zhang, and Larry Heck. Rilod: Near real-time incre-
+[10] Yu Hao, Yanwei Fu, Yu-Gang Jiang, and Qi Tian. An end-to-                     mental learning for object detection at the edge. In Proceed-
+     end architecture for class-incremental object detection with                  ings of the 4th ACM/IEEE Symposium on Edge Computing,
+     knowledge distillation. In 2019 IEEE International Con-                       pages 113–126, 2019. 2
+     ference on Multimedia and Expo (ICME), pages 1–6. IEEE,                  [23] Wei Li, Qingbo Wu, Linfeng Xu, and Chao Shang. Incre-
+     2019. 2                                                                       mental learning of single-stage detectors with mining mem-
+[11] Mahmoud Hassaballah, Mourad A Kenk, Khan Muhammad,                            ory neurons. In 2018 IEEE 4th International Conference on
+     and Shervin Minaee. Vehicle detection and tracking in ad-                     Computer and Communications (ICCC), pages 1981–1985.
+     verse weather using a deep learning framework. IEEE trans-                    IEEE, 2018. 2
+     actions on intelligent transportation systems, 22(7):4230–               [24] Yanghao Li, Hanzi Mao, Ross Girshick, and Kaiming He.
+     4242, 2020. 6                                                                 Exploring plain vision transformer backbones for object de-
+[12] Chenyu Huang, Peng Ye, Tao Chen, Tong He, Xi-                                 tection. In European conference on computer vision, pages
+     angyu Yue, and Wanli Ouyang. Emr-merging: Tuning-                             280–296. Springer, 2022. 6, 7
+
+
+
+
+                                                                       3129
+[25] Zhizhong Li and Derek Hoiem. Learning without forgetting.               [39] Jeng-Lun Shieh, Qazi Mazhar ul Haq, Muhamad Amirul
+     IEEE transactions on pattern analysis and machine intelli-                   Haq, Said Karam, Peter Chondro, De-Qin Gao, and Shanq-
+     gence, 40(12):2935–2947, 2017. 1, 2, 3, 6, 7                                 Jang Ruan. Continual learning strategy in one-stage ob-
+[26] Xialei Liu, Hao Yang, Avinash Ravichandran, Rahul                            ject detection framework based on experience replay for au-
+     Bhotika, and Stefano Soatto. Multi-task incremental learn-                   tonomous driving vehicle. Sensors, 20(23):6777, 2020. 2
+     ing for object detection. arXiv preprint arXiv:2002.05347,              [40] Konstantin Shmelkov, Cordelia Schmid, and Karteek Ala-
+     2020. 6                                                                      hari. Incremental learning of object detectors without catas-
+[27] Yuyang Liu, Yang Cong, Dipam Goswami, Xialei Liu, and                        trophic forgetting. In Proceedings of the IEEE international
+     Joost van de Weijer. Augmented box replay: Overcom-                          conference on computer vision, pages 3400–3409, 2017. 1,
+     ing foreground shift for incremental object detection. In                    2, 3
+     Proceedings of the IEEE/CVF International Conference on                 [41] Xiang Song, Yuhang He, Songlin Dong, and Yihong
+     Computer Vision (ICCV), pages 11367–11377, 2023. 2, 3                        Gong. Non-exemplar domain incremental object detection
+[28] Yaoyao Liu, Bernt Schiele, Andrea Vedaldi, and Christian                     via learning domain bias. In Proceedings of the AAAI Con-
+     Rupprecht. Continual detection transformer for incremen-                     ference on Artificial Intelligence, pages 15056–15065, 2024.
+     tal object detection. In Proceedings of the IEEE/CVF Con-                    1, 2, 3, 6, 7
+     ference on Computer Vision and Pattern Recognition, pages               [42] Qiang Wang, Yuhang He, Songlin Dong, Xinyuan Gao,
+     23799–23808, 2023. 1, 2, 3, 6, 7                                             Shaokun Wang, and Yihong Gong. Non-exemplar domain
+[29] Wenyu Lv, Shangliang Xu, Yian Zhao, Guanzhong Wang,                          incremental learning via cross-domain concept integration.
+     Jinman Wei, Cheng Cui, Yuning Du, Qingqing Dang, and Yi                      In European Conference on Computer Vision, pages 144–
+     Liu. Detrs beat yolos on real-time object detection, 2023. 2,                162. Springer, 2025. 2
+     3, 4, 7                                                                 [43] Yabin Wang, Zhiwu Huang, and Xiaopeng Hong. S-prompts
+                                                                                  learning with pre-trained transformers: An occam’s razor for
+[30] Daniel Marczak, Bartłomiej Twardowski, Tomasz Trzciński,
+                                                                                  domain incremental learning. Advances in Neural Informa-
+     and Sebastian Cygert. Magmax: Leveraging model merging
+                                                                                  tion Processing Systems, 35:5682–5695, 2022. 2
+     for seamless continual learning. In European Conference on
+     Computer Vision, pages 379–395. Springer, 2025. 3, 4, 8                 [44] Aming Wu and Cheng Deng. Single-domain generalized ob-
+                                                                                  ject detection in urban scene via cyclic-disentangled self-
+[31] Michael S Matena and Colin A Raffel. Merging models with
+                                                                                  distillation. In Proceedings of the IEEE/CVF Conference
+     fisher-weighted averaging. Advances in Neural Information
+                                                                                  on computer vision and pattern recognition, pages 847–856,
+     Processing Systems, 35:17703–17716, 2022. 3, 5
+                                                                                  2022. 6
+[32] Angelo G Menezes, Gustavo de Moura, Cézanne Alves, and
+                                                                             [45] Prateek Yadav, Derek Tam, Leshem Choshen, Colin A Raf-
+     André CPLF de Carvalho. Continual object detection: a re-
+                                                                                  fel, and Mohit Bansal. Ties-merging: Resolving interference
+     view of definitions, strategies, and challenges. Neural net-
+                                                                                  when merging models. Advances in Neural Information Pro-
+     works, 161:476–493, 2023. 2, 3, 6
+                                                                                  cessing Systems, 36, 2024. 2, 3, 5
+[33] M Jehanzeb Mirza, Marc Masana, Horst Possegger, and
+                                                                             [46] Dongbao Yang, Yu Zhou, Wei Shi, Dayan Wu, and Weiping
+     Horst Bischof. An efficient domain-incremental learning ap-
+                                                                                  Wang. Rd-iod: Two-level residual-distillation-based triple-
+     proach to drive in all weather conditions. In Proceedings of
+                                                                                  network for incremental object detection. ACM Transactions
+     the IEEE/CVF conference on computer vision and pattern
+                                                                                  on Multimedia Computing, Communications, and Applica-
+     recognition, pages 3001–3011, 2022. 2
+                                                                                  tions (TOMM), 18(1):1–23, 2022. 2
+[34] Jiangmiao Pang, Kai Chen, Jianping Shi, Huajun Feng,                    [47] Dongbao Yang, Yu Zhou, Aoting Zhang, Xurui Sun, Dayan
+     Wanli Ouyang, and Dahua Lin. Libra r-cnn: Towards                            Wu, Weiping Wang, and Qixiang Ye. Multi-view correlation
+     balanced learning for object detection. In Proceedings of                    distillation for incremental object detection. Pattern Recog-
+     the IEEE/CVF conference on computer vision and pattern                       nition, 131:108863, 2022. 6
+     recognition, pages 821–830, 2019. 2
+                                                                             [48] Fisher Yu, Haofeng Chen, Xin Wang, Wenqi Xian, Yingying
+[35] Min-Yeong Park, Jae-Ho Lee, and Gyeong-Moon Park. Ver-                       Chen, Fangchen Liu, Vashisht Madhavan, and Trevor Dar-
+     satile incremental learning: Towards class and domain-                       rell. Bdd100k: A diverse driving dataset for heterogeneous
+     agnostic incremental learning. In European Conference on                     multitask learning. In Proceedings of the IEEE/CVF con-
+     Computer Vision, pages 271–288. Springer, 2025. 1, 3                         ference on computer vision and pattern recognition, pages
+[36] Can Peng, Kun Zhao, and Brian C Lovell. Faster ilod: In-                     2636–2645, 2020. 6
+     cremental learning for object detectors based on faster rcnn.           [49] Le Yu, Bowen Yu, Haiyang Yu, Fei Huang, and Yongbin Li.
+     Pattern recognition letters, 140:109–115, 2020. 2                            Language models are super mario: Absorbing abilities from
+[37] Can Peng, Kun Zhao, Sam Maksoud, Meng Li, and Brian C                        homologous models as a free lunch. In Forty-first Interna-
+     Lovell. Sid: incremental learning for anchor-free object de-                 tional Conference on Machine Learning, 2024. 2, 3
+     tection via selective and inter-related distillation. Computer          [50] Nan Zhang, Zhigang Sun, Kai Zhang, and Li Xiao. Incre-
+     vision and image understanding, 210:103229, 2021. 2                          mental learning of object detection with output merging of
+[38] Anthony Robins. Catastrophic forgetting, rehearsal and                       compact expert detectors. In 2021 4th international confer-
+     pseudorehearsal. Connection Science, 7(2):123–146, 1995.                     ence on intelligent autonomous systems (ICoIAS), pages 1–7.
+     1                                                                            IEEE, 2021. 2
+
+
+
+
+                                                                      3130
+[51] Jian Zhong, Yifan Jiao, and Bing-Kun Bao. Replay-based
+     incremental object detection with local response exploration.
+     IEEE Transactions on Multimedia, 2025. 2
+[52] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang
+     Wang, and Jifeng Dai. Deformable detr: Deformable trans-
+     formers for end-to-end object detection. arXiv preprint
+     arXiv:2010.04159, 2020. 2, 3, 6, 7
+
+
+
+
+                                                                     3131
+

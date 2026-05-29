@@ -70,6 +70,7 @@ class DuETDetectionLoss(v8DetectionLoss):
             distill_cls_quantile: float = 0.75,
             distill_bbox_quantile: float = 0.75,
             curr_task_vector: dict | None = None,
+            old_class_indices: list[int] | tuple[int, ...] | None = None,
     ):
         """
         初始化 DuET 检测损失函数。
@@ -93,6 +94,7 @@ class DuETDetectionLoss(v8DetectionLoss):
         self.distill_cls_quantile = distill_cls_quantile
         self.distill_bbox_quantile = distill_bbox_quantile
         self.curr_task_vector = curr_task_vector
+        self.old_class_indices = None if old_class_indices is None else tuple(int(i) for i in old_class_indices)
         self.task_vector_history: list[dict] = []
         self._teacher_dtype_synced = False
         if self.teacher is not None:
@@ -115,6 +117,20 @@ class DuETDetectionLoss(v8DetectionLoss):
             curr_task_vector: 上一任务相对于基准预训练模型的任务向量。
         """
         self.curr_task_vector = curr_task_vector
+
+    @staticmethod
+    def _scores_to_anchor_last(scores: torch.Tensor, nc: int) -> torch.Tensor:
+        """Return class logits as [batch, anchors, classes]."""
+        if scores.ndim == 3 and scores.shape[1] == nc:
+            return scores.permute(0, 2, 1).contiguous()
+        return scores.contiguous()
+
+    @staticmethod
+    def _boxes_to_anchor_last(boxes: torch.Tensor) -> torch.Tensor:
+        """Return DFL box logits as [batch, anchors, 4 * reg_max]."""
+        if boxes.ndim == 3 and boxes.shape[1] % 4 == 0 and boxes.shape[1] < boxes.shape[2]:
+            return boxes.permute(0, 2, 1).contiguous()
+        return boxes.contiguous()
 
     def _ensure_teacher_dtype(self, preds: dict[str, torch.Tensor]) -> None:
         """
@@ -236,6 +252,10 @@ class DuETDetectionLoss(v8DetectionLoss):
         # Teacher 前向传播（无梯度，eval 模式）
         # teacher.model(img) 返回 (tower_features, predictions_dict)，与 Ultralytics 内部格式一致
         self.teacher.eval()
+        student_bbox_raw = self._boxes_to_anchor_last(student_bbox_raw)
+        student_cls_raw = self._scores_to_anchor_last(preds["scores"], int(getattr(self, "nc", preds["scores"].shape[1])))
+
+        self.teacher.eval()
         with torch.no_grad():
             raw_output = self.teacher(img)
             # 统一处理：若返回元组则取第二个元素（预测字典），否则直接使用
@@ -249,6 +269,18 @@ class DuETDetectionLoss(v8DetectionLoss):
             # teacher 输出是逐层的列表，拼接所有层
             teacher_bbox_raw = torch.cat([t.detach() for t in teacher_bbox_raw], dim=1)
             teacher_cls_raw  = torch.cat([t.detach() for t in teacher_cls_raw],  dim=1)
+
+        teacher_bbox_raw = self._boxes_to_anchor_last(teacher_bbox_raw)
+        teacher_cls_raw = self._scores_to_anchor_last(teacher_cls_raw, int(getattr(self, "nc", teacher_cls_raw.shape[1])))
+
+        if self.old_class_indices is not None:
+            class_index = torch.tensor(self.old_class_indices, device=device, dtype=torch.long)
+            max_nc = min(student_cls_raw.shape[2], teacher_cls_raw.shape[2])
+            class_index = class_index[class_index < max_nc]
+            if class_index.numel() == 0:
+                return torch.tensor(0.0, device=device)
+            student_cls_raw = student_cls_raw.index_select(2, class_index)
+            teacher_cls_raw = teacher_cls_raw.index_select(2, class_index)
 
         # 学生模型分类shape只取前old_nc个
         if student_cls_raw.shape != teacher_cls_raw.shape:
@@ -264,11 +296,11 @@ class DuETDetectionLoss(v8DetectionLoss):
             return torch.tensor(0.0, device=device)
 
         batch_size = student_cls_raw.shape[0]
-        total_anchors = student_cls_raw.shape[-1]
+        total_anchors = student_cls_raw.shape[1]
 
         # 将 teacher bbox 展平以计算方差（bbox 格式为 reg_max*4，沿最后一维）
         # bbox shape: (batch,4*reg_max,total_anchors) -> (batch, total_anchors, 4, reg_max)
-        reg_max = student_bbox_raw.shape[1] // 4
+        reg_max = student_bbox_raw.shape[2] // 4
         teacher_bbox_4d = teacher_bbox_raw.view(batch_size, total_anchors, 4, reg_max)
         student_bbox_4d = student_bbox_raw.view(batch_size, total_anchors, 4, reg_max)
 
@@ -278,6 +310,7 @@ class DuETDetectionLoss(v8DetectionLoss):
 
         # ===== 分类蒸馏 (Eq 12-13) =====
         # 使用原始分类 logits（未经过 sigmoid/softmax）
+        teacher_cls_flat = teacher_cls_raw.reshape(batch_size * total_anchors, -1).float()
         teacher_cls_flat = teacher_cls_raw.reshape(batch_size * total_anchors, -1).float()
         student_cls_flat = student_cls_raw.reshape(batch_size * total_anchors, -1).float()
 
@@ -407,6 +440,7 @@ def create_duet_criterion(
         distill_temperature: float = 2.0,
         distill_cls_quantile: float = 0.75,
         distill_bbox_quantile: float = 0.75,
+        old_class_indices: list[int] | tuple[int, ...] | None = None,
 ) -> DuETDetectionLoss:
     """
     创建 DuET 检测损失函数的工厂函数。
@@ -444,4 +478,5 @@ def create_duet_criterion(
         distill_temperature=distill_temperature,
         distill_cls_quantile=distill_cls_quantile,
         distill_bbox_quantile=distill_bbox_quantile,
+        old_class_indices=old_class_indices,
     )

@@ -1,0 +1,1272 @@
+[日志] 本次训练控制台输出将同步保存到: outputs/status3_weather_2phase_duet_yolo11n/logs/train_20260527_184024.txt
+
+========================================================================
+【运行说明】当前脚本会按下面顺序执行：
+  第一部分：顺序训练每个任务，增量阶段会自动接入 DuET 蒸馏/DC loss
+  第二部分：每个任务训练结束后，立刻执行 DuET Module 动态融合
+  第三部分：检测头按 class_indices 做通道切片保留，避免旧类被覆盖
+------------------------------------------------------------------------
+T1: daytime_sunny_1_4
+    data.yaml      : /home/lenovo/gaoyingying/tasks/task_1/data.yaml
+    class_indices  : [0, 1, 2, 3]
+    是否第一阶段   : 是，使用 yolo11n.pt 初始化 backbone/neck
+T2: night_sunny_5_7
+    data.yaml      : /home/lenovo/gaoyingying/tasks/task_4/data.yaml
+    class_indices  : [4, 5, 6]
+    是否第一阶段   : 否，使用上一阶段 merged checkpoint
+========================================================================
+
+[DuET reference] 发现旧 reference 初始化版本不匹配，正在重新生成: outputs/status3_weather_2phase_duet_yolo11n/reference_full_head.pt
+[DuET reference] loaded exact tensors=448, class-output rows copied=0 from yolo11n.pt
+[数据准备] daytime_sunny_1_4 标签编号模式: local，将写入全局 7 类 data.yaml
+
+========================================================================
+【阶段 T1】开始训练：daytime_sunny_1_4
+原始 data.yaml: /home/lenovo/gaoyingying/tasks/task_1/data.yaml
+全局 data.yaml: outputs/status3_weather_2phase_duet_yolo11n/prepared_data/daytime_sunny_1_4/data.yaml
+全局类别通道 class_indices: [0, 1, 2, 3]
+========================================================================
+New https://pypi.org/project/ultralytics/8.4.56 available 😃 Update with 'pip install -U ultralytics'
+Ultralytics 8.4.41 🚀 Python-3.13.5 torch-2.12.0+cu130 CUDA:1 (NVIDIA GeForce RTX 4090 D, 24081MiB)
+[34m[1mengine/trainer: [0magnostic_nms=False, amp=True, angle=1.0, augment=False, auto_augment=randaugment, batch=64, bgr=0.0, box=7.5, cache=False, cfg=None, classes=None, close_mosaic=10, cls=0.5, cls_pw=0.0, compile=False, conf=None, copy_paste=0.0, copy_paste_mode=flip, cos_lr=True, cutmix=0.0, data=outputs/status3_weather_2phase_duet_yolo11n/prepared_data/daytime_sunny_1_4/data.yaml, degrees=0.0, deterministic=True, device=1, dfl=1.5, dnn=False, dropout=0.0, dynamic=False, embed=None, end2end=None, epochs=100, erasing=0.4, exist_ok=True, fliplr=0.5, flipud=0.0, format=torchscript, fraction=1.0, freeze=0, half=False, hsv_h=0.015, hsv_s=0.7, hsv_v=0.4, imgsz=640, int8=False, iou=0.7, keras=False, kobj=1.0, line_width=None, lr0=0.01, lrf=0.01, mask_ratio=4, max_det=300, mixup=0.0, mode=train, model=outputs/status3_weather_2phase_duet_yolo11n/reference_full_head.pt, momentum=0.937, mosaic=1.0, multi_scale=0.0, name=daytime_sunny_1_4, nbs=64, nms=False, opset=None, optimize=False, optimizer=AdamW, overlap_mask=True, patience=100, perspective=0.0, plots=True, pose=12.0, pretrained=True, profile=False, project=outputs/status3_weather_2phase_duet_yolo11n/runs, rect=False, resume=False, retina_masks=False, rle=1.0, save=True, save_conf=False, save_crop=False, save_dir=/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4, save_frames=False, save_json=False, save_period=-1, save_txt=False, scale=0.5, seed=0, shear=0.0, show=False, show_boxes=True, show_conf=True, show_labels=True, simplify=True, single_cls=False, source=None, split=val, stream_buffer=False, task=detect, time=None, tracker=botsort.yaml, translate=0.1, val=True, verbose=True, vid_stride=1, visualize=False, warmup_bias_lr=0.1, warmup_epochs=5, warmup_momentum=0.8, weight_decay=0.0005, workers=0, workspace=None
+
+                   from  n    params  module                                       arguments                     
+  0                  -1  1       464  ultralytics.nn.modules.conv.Conv             [3, 16, 3, 2]                 
+  1                  -1  1      4672  ultralytics.nn.modules.conv.Conv             [16, 32, 3, 2]                
+  2                  -1  1      6640  ultralytics.nn.modules.block.C3k2            [32, 64, 1, False, 0.25]      
+  3                  -1  1     36992  ultralytics.nn.modules.conv.Conv             [64, 64, 3, 2]                
+  4                  -1  1     26080  ultralytics.nn.modules.block.C3k2            [64, 128, 1, False, 0.25]     
+  5                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+  6                  -1  1     87040  ultralytics.nn.modules.block.C3k2            [128, 128, 1, True]           
+  7                  -1  1    295424  ultralytics.nn.modules.conv.Conv             [128, 256, 3, 2]              
+  8                  -1  1    346112  ultralytics.nn.modules.block.C3k2            [256, 256, 1, True]           
+  9                  -1  1    164608  ultralytics.nn.modules.block.SPPF            [256, 256, 5]                 
+ 10                  -1  1    249728  ultralytics.nn.modules.block.C2PSA           [256, 256, 1]                 
+ 11                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 12             [-1, 6]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 13                  -1  1    111296  ultralytics.nn.modules.block.C3k2            [384, 128, 1, False]          
+ 14                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 15             [-1, 4]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 16                  -1  1     32096  ultralytics.nn.modules.block.C3k2            [256, 64, 1, False]           
+ 17                  -1  1     36992  ultralytics.nn.modules.conv.Conv             [64, 64, 3, 2]                
+ 18            [-1, 13]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 19                  -1  1     86720  ultralytics.nn.modules.block.C3k2            [192, 128, 1, False]          
+ 20                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+ 21            [-1, 10]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 22                  -1  1    378880  ultralytics.nn.modules.block.C3k2            [384, 256, 1, True]           
+ 23        [16, 19, 22]  1    432037  ultralytics.nn.modules.head.Detect           [7, 16, None, [64, 128, 256]] 
+YOLO11n summary: 182 layers, 2,591,205 parameters, 2,591,189 gradients, 6.4 GFLOPs
+
+Transferred 499/499 items from pretrained weights
+Freezing layer 'model.23.dfl.conv.weight'
+[34m[1mAMP: [0mrunning Automatic Mixed Precision (AMP) checks...
+[34m[1mAMP: [0mchecks passed ✅
+[34m[1mtrain: [0mFast image access ✅ (ping: 0.0±0.0 ms, read: 2331.0±1333.2 MB/s, size: 69.8 KB)
+
+[34m[1mtrain: [0mNew cache created: /home/lenovo/gaoyingying/dual-incremental-detection-master/outputs/status3_weather_2phase_duet_yolo11n/prepared_data/daytime_sunny_1_4/labels/train.cache
+[34m[1mval: [0mFast image access ✅ (ping: 0.0±0.0 ms, read: 2220.5±644.1 MB/s, size: 79.4 KB)
+
+[34m[1mval: [0m/home/lenovo/gaoyingying/dual-incremental-detection-master/outputs/status3_weather_2phase_duet_yolo11n/prepared_data/daytime_sunny_1_4/images/val/75055858-7d04a650.jpg: 1 duplicate labels removed
+[34m[1mval: [0mNew cache created: /home/lenovo/gaoyingying/dual-incremental-detection-master/outputs/status3_weather_2phase_duet_yolo11n/prepared_data/daytime_sunny_1_4/labels/val.cache
+[34m[1moptimizer:[0m AdamW(lr=0.01, momentum=0.937) with parameter groups 81 weight(decay=0.0), 88 weight(decay=0.0005), 87 bias(decay=0.0)
+Plotting labels to /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/labels.jpg... 
+Image sizes 640 train, 640 val
+Using 0 dataloader workers
+Logging results to [1m/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4[0m
+Starting training for 100 epochs...
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.673      0.136      0.127     0.0718
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.371      0.131      0.149     0.0803
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.711      0.174      0.178     0.0965
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.264      0.167       0.15     0.0801
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.226      0.216      0.171     0.0968
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.315      0.229      0.201      0.111
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.437      0.292      0.278      0.159
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.436      0.297      0.277      0.156
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.394      0.308      0.276      0.158
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.395      0.319      0.287      0.167
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.388      0.333      0.288      0.166
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.421      0.336      0.316      0.186
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.436      0.359      0.332      0.195
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.452      0.326      0.317      0.188
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.483      0.338      0.339      0.201
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.436      0.371      0.341      0.201
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.449      0.369      0.351      0.208
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.481      0.371      0.364      0.212
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.483      0.376      0.375      0.219
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.497      0.374      0.373      0.217
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.492      0.371      0.372      0.216
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.528      0.382       0.39      0.229
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.494       0.39      0.385      0.228
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.519      0.389      0.397      0.234
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.518      0.398      0.401      0.239
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.533      0.401      0.407      0.241
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.543      0.404      0.414      0.244
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.533      0.395      0.412      0.244
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.547      0.399      0.414      0.247
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.543      0.407      0.419      0.246
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.556      0.397      0.417      0.249
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.559      0.401      0.422      0.249
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.579      0.405      0.429      0.253
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.568      0.406       0.43      0.254
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.567      0.413      0.431      0.255
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.572      0.416      0.432      0.255
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.567      0.415      0.432      0.256
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.565      0.417      0.433      0.257
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.579      0.417      0.437      0.259
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.574       0.42      0.437      0.259
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.575      0.418      0.438      0.261
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.595      0.417      0.442      0.263
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.589      0.419      0.442      0.264
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.587       0.42      0.445      0.264
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.587       0.42      0.444      0.265
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.589      0.428      0.447      0.267
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.59      0.427      0.449      0.267
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.597      0.426       0.45      0.269
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.597      0.426      0.451      0.269
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659        0.6      0.427      0.453      0.269
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.605      0.432      0.455       0.27
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.606       0.43      0.455       0.27
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.606      0.428      0.455      0.271
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.602       0.43      0.455      0.272
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.599       0.43      0.457      0.272
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.61      0.429      0.458      0.272
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.609       0.43      0.458      0.272
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.607       0.43      0.458      0.272
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.621      0.427      0.459      0.273
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.614      0.429      0.459      0.273
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.61       0.43       0.46      0.273
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.616       0.43      0.461      0.274
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.62      0.429      0.461      0.274
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.62      0.429      0.462      0.274
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.626      0.429      0.463      0.274
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.623      0.428      0.462      0.274
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.429      0.462      0.275
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.626      0.429      0.462      0.275
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.629      0.429      0.463      0.275
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.626       0.43      0.464      0.275
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.619      0.435      0.464      0.276
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.619      0.436      0.464      0.276
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.618      0.435      0.464      0.276
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.618      0.435      0.464      0.277
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.617      0.433      0.464      0.277
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.619      0.432      0.464      0.277
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.615      0.434      0.465      0.277
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.618      0.434      0.465      0.277
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.619      0.432      0.465      0.277
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.62      0.433      0.466      0.278
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659       0.62      0.435      0.467      0.278
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.621      0.434      0.467      0.278
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.622      0.433      0.467      0.278
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.433      0.467      0.278
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.622      0.434      0.467      0.278
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.622      0.434      0.467      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.435      0.467      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.436      0.468      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.625      0.436      0.468      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.626      0.435      0.468      0.279
+Closing dataloader mosaic
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.627      0.437      0.469      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.623      0.436      0.469      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.437      0.469      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.623      0.437      0.468      0.279
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.623      0.439      0.469       0.28
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.439      0.469       0.28
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.626      0.439      0.469       0.28
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.629      0.436      0.469       0.28
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.629      0.435      0.468       0.28
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       8270      98659      0.624      0.435      0.469       0.28
+
+100 epochs completed in 6.646 hours.
+Optimizer stripped from /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/weights/last.pt, 5.5MB
+Optimizer stripped from /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/weights/best.pt, 5.5MB
+
+Validating /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4/weights/best.pt...
+Ultralytics 8.4.41 🚀 Python-3.13.5 torch-2.12.0+cu130 CUDA:1 (NVIDIA GeForce RTX 4090 D, 24081MiB)
+YOLO11n summary (fused): 101 layers, 2,583,517 parameters, 0 gradients, 6.3 GFLOPs
+
+                   all       8270      98659      0.626      0.436      0.468       0.28
+               class_1        613       1046      0.535      0.272        0.3      0.131
+               class_2       1322       1738      0.616      0.455      0.493      0.369
+               class_3       8256      95338      0.761      0.703      0.748      0.465
+               class_4        381        537      0.591      0.312      0.333      0.155
+Speed: 0.0ms preprocess, 0.2ms inference, 0.0ms loss, 0.3ms postprocess per image
+Results saved to [1m/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/daytime_sunny_1_4[0m
+【阶段 T1】第一阶段无旧模型，跳过 DuET merge，直接保存 best checkpoint。
+【阶段 T1】完成。merged checkpoint: outputs/status3_weather_2phase_duet_yolo11n/task_1_daytime_sunny_1_4_best.pt
+[数据准备] night_sunny_5_7 标签编号模式: local，将写入全局 7 类 data.yaml
+
+========================================================================
+【阶段 T2】开始训练：night_sunny_5_7
+原始 data.yaml: /home/lenovo/gaoyingying/tasks/task_4/data.yaml
+全局 data.yaml: outputs/status3_weather_2phase_duet_yolo11n/prepared_data/night_sunny_5_7/data.yaml
+全局类别通道 class_indices: [4, 5, 6]
+========================================================================
+New https://pypi.org/project/ultralytics/8.4.56 available 😃 Update with 'pip install -U ultralytics'
+Ultralytics 8.4.41 🚀 Python-3.13.5 torch-2.12.0+cu130 CUDA:1 (NVIDIA GeForce RTX 4090 D, 24081MiB)
+[34m[1mengine/trainer: [0magnostic_nms=False, amp=True, angle=1.0, augment=False, auto_augment=randaugment, batch=64, bgr=0.0, box=7.5, cache=False, cfg=None, classes=None, close_mosaic=10, cls=0.5, cls_pw=0.0, compile=False, conf=None, copy_paste=0.0, copy_paste_mode=flip, cos_lr=True, cutmix=0.0, data=outputs/status3_weather_2phase_duet_yolo11n/prepared_data/night_sunny_5_7/data.yaml, degrees=0.0, deterministic=True, device=1, dfl=1.5, dnn=False, dropout=0.0, dynamic=False, embed=None, end2end=None, epochs=100, erasing=0.4, exist_ok=True, fliplr=0.5, flipud=0.0, format=torchscript, fraction=1.0, freeze=0, half=False, hsv_h=0.015, hsv_s=0.7, hsv_v=0.4, imgsz=640, int8=False, iou=0.7, keras=False, kobj=1.0, line_width=None, lr0=0.01, lrf=0.01, mask_ratio=4, max_det=300, mixup=0.0, mode=train, model=outputs/status3_weather_2phase_duet_yolo11n/task_1_daytime_sunny_1_4_best.pt, momentum=0.937, mosaic=1.0, multi_scale=0.0, name=night_sunny_5_7, nbs=64, nms=False, opset=None, optimize=False, optimizer=AdamW, overlap_mask=True, patience=100, perspective=0.0, plots=True, pose=12.0, pretrained=True, profile=False, project=outputs/status3_weather_2phase_duet_yolo11n/runs, rect=False, resume=False, retina_masks=False, rle=1.0, save=True, save_conf=False, save_crop=False, save_dir=/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7, save_frames=False, save_json=False, save_period=-1, save_txt=False, scale=0.5, seed=0, shear=0.0, show=False, show_boxes=True, show_conf=True, show_labels=True, simplify=True, single_cls=False, source=None, split=val, stream_buffer=False, task=detect, time=None, tracker=botsort.yaml, translate=0.1, val=True, verbose=True, vid_stride=1, visualize=False, warmup_bias_lr=0.1, warmup_epochs=5, warmup_momentum=0.8, weight_decay=0.001, workers=0, workspace=None
+
+                   from  n    params  module                                       arguments                     
+  0                  -1  1       464  ultralytics.nn.modules.conv.Conv             [3, 16, 3, 2]                 
+  1                  -1  1      4672  ultralytics.nn.modules.conv.Conv             [16, 32, 3, 2]                
+  2                  -1  1      6640  ultralytics.nn.modules.block.C3k2            [32, 64, 1, False, 0.25]      
+  3                  -1  1     36992  ultralytics.nn.modules.conv.Conv             [64, 64, 3, 2]                
+  4                  -1  1     26080  ultralytics.nn.modules.block.C3k2            [64, 128, 1, False, 0.25]     
+  5                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+  6                  -1  1     87040  ultralytics.nn.modules.block.C3k2            [128, 128, 1, True]           
+  7                  -1  1    295424  ultralytics.nn.modules.conv.Conv             [128, 256, 3, 2]              
+  8                  -1  1    346112  ultralytics.nn.modules.block.C3k2            [256, 256, 1, True]           
+  9                  -1  1    164608  ultralytics.nn.modules.block.SPPF            [256, 256, 5]                 
+ 10                  -1  1    249728  ultralytics.nn.modules.block.C2PSA           [256, 256, 1]                 
+ 11                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 12             [-1, 6]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 13                  -1  1    111296  ultralytics.nn.modules.block.C3k2            [384, 128, 1, False]          
+ 14                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 15             [-1, 4]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 16                  -1  1     32096  ultralytics.nn.modules.block.C3k2            [256, 64, 1, False]           
+ 17                  -1  1     36992  ultralytics.nn.modules.conv.Conv             [64, 64, 3, 2]                
+ 18            [-1, 13]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 19                  -1  1     86720  ultralytics.nn.modules.block.C3k2            [192, 128, 1, False]          
+ 20                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+ 21            [-1, 10]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 22                  -1  1    378880  ultralytics.nn.modules.block.C3k2            [384, 256, 1, True]           
+ 23        [16, 19, 22]  1    432037  ultralytics.nn.modules.head.Detect           [7, 16, None, [64, 128, 256]] 
+YOLO11n summary: 182 layers, 2,591,205 parameters, 2,591,189 gradients, 6.4 GFLOPs
+
+Transferred 499/499 items from pretrained weights
+Freezing layer 'model.23.dfl.conv.weight'
+[34m[1mAMP: [0mrunning Automatic Mixed Precision (AMP) checks...
+[34m[1mAMP: [0mchecks passed ✅
+[34m[1mtrain: [0mFast image access ✅ (ping: 0.0±0.0 ms, read: 1797.7±750.4 MB/s, size: 40.5 KB)
+
+[34m[1mtrain: [0mNew cache created: /home/lenovo/gaoyingying/dual-incremental-detection-master/outputs/status3_weather_2phase_duet_yolo11n/prepared_data/night_sunny_5_7/labels/train.cache
+[34m[1mval: [0mFast image access ✅ (ping: 0.0±0.0 ms, read: 1951.1±614.3 MB/s, size: 43.3 KB)
+
+[34m[1mval: [0mNew cache created: /home/lenovo/gaoyingying/dual-incremental-detection-master/outputs/status3_weather_2phase_duet_yolo11n/prepared_data/night_sunny_5_7/labels/val.cache
+[34m[1moptimizer:[0m AdamW(lr=0.01, momentum=0.937) with parameter groups 81 weight(decay=0.0), 88 weight(decay=0.001), 87 bias(decay=0.0)
+Plotting labels to /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/labels.jpg... 
+Image sizes 640 train, 640 val
+Using 0 dataloader workers
+Logging results to [1m/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7[0m
+Starting training for 100 epochs...
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   6.36e-05     0.0102   2.66e-06   6.93e-07
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 5: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 6: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   0.000178    0.00295   1.29e-06   5.63e-07
+WARNING ⚠️ Skipping checkpoint save at epoch 7: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   0.000149     0.0198    1.1e-05   3.04e-06
+WARNING ⚠️ Skipping checkpoint save at epoch 8: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 9: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 10: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 11: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 12: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 13: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 14: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 15: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   0.000244      0.035   2.37e-05   5.04e-06
+WARNING ⚠️ Skipping checkpoint save at epoch 16: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 17: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 18: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 19: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 20: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 21: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   5.93e-06   0.000184   8.29e-08   2.49e-08
+WARNING ⚠️ Skipping checkpoint save at epoch 22: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 23: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 24: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 25: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 26: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 27: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 28: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 29: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   2.67e-06   0.000368   1.98e-06   2.12e-07
+WARNING ⚠️ Skipping checkpoint save at epoch 30: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 31: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 32: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Loss NaN/Inf detected (attempt 1/3), recovering from last.pt...
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   6.36e-05     0.0102   2.66e-06   6.93e-07
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 34: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 35: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 36: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 37: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 38: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   2.81e-06   0.000227    6.2e-07   1.86e-07
+WARNING ⚠️ Skipping checkpoint save at epoch 39: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   0.000111     0.0157   1.03e-05   3.89e-06
+WARNING ⚠️ Skipping checkpoint save at epoch 40: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   1.35e-06   0.000227   1.87e-08   3.74e-09
+WARNING ⚠️ Skipping checkpoint save at epoch 41: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 42: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 43: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 44: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 45: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 46: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 47: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 48: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   2.88e-06   0.000227   2.48e-08   4.96e-09
+WARNING ⚠️ Skipping checkpoint save at epoch 49: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 50: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 51: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   2.68e-06   0.000454   3.48e-08   6.94e-09
+WARNING ⚠️ Skipping checkpoint save at epoch 52: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   4.31e-06   0.000454   5.61e-08   1.12e-08
+WARNING ⚠️ Skipping checkpoint save at epoch 53: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 54: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 55: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 56: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 57: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 58: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146   3.69e-05    0.00268   4.32e-07   5.86e-08
+WARNING ⚠️ Skipping checkpoint save at epoch 59: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 60: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 61: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 62: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 63: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 64: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 65: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 66: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 67: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 68: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 69: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 70: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 71: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 72: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 73: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 74: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 75: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 76: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 77: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 78: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 79: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 80: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 81: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 82: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 83: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 84: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 85: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 86: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 87: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 88: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 89: EMA contains NaN/Inf
+Closing dataloader mosaic
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 90: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 91: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 92: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 93: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 94: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 95: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 96: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 97: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 98: EMA contains NaN/Inf
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_lossdistill_loss    dc_loss  Instances       Size
+
+
+                   all       2497       7146          0          0          0          0
+WARNING ⚠️ Skipping checkpoint save at epoch 99: EMA contains NaN/Inf
+
+100 epochs completed in 3.306 hours.
+Optimizer stripped from /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/weights/last.pt, 5.5MB
+Optimizer stripped from /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/weights/best.pt, 5.5MB
+
+Validating /home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7/weights/best.pt...
+Ultralytics 8.4.41 🚀 Python-3.13.5 torch-2.12.0+cu130 CUDA:1 (NVIDIA GeForce RTX 4090 D, 24081MiB)
+YOLO11n summary (fused): 101 layers, 2,583,517 parameters, 0 gradients, 6.3 GFLOPs
+
+                   all       2497       7146   6.36e-05     0.0102   2.66e-06   6.94e-07
+               class_5       1568       5436          0          0          0          0
+               class_6        206        243          0          0          0          0
+               class_7       1127       1467   0.000191     0.0307   7.97e-06   2.08e-06
+Speed: 0.0ms preprocess, 0.3ms inference, 0.0ms loss, 1.5ms postprocess per image
+Results saved to [1m/home/lenovo/gaoyingying/dual-incremental-detection/runs/detect/outputs/status3_weather_2phase_duet_yolo11n/runs/night_sunny_5_7[0m
+【阶段 T2】进入 DuET 融合：共享层动态融合 + 检测头通道切片保留。
+[DuET train_new1] merged_keys=180 skipped_keys=319
+【阶段 T2】完成。merged checkpoint: outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt
+
+[DuET train_new1] Done. History saved to outputs/status3_weather_2phase_duet_yolo11n/training_history.json
+[DuET train_new1] Final checkpoint: outputs/status3_weather_2phase_duet_yolo11n/task_2_night_sunny_5_7_duet.pt

@@ -1,0 +1,38 @@
+# Evaluate the paper-faithful T2 rerun whose final checkpoint uses
+# merged shared backbone/neck plus concatenated old/current Detect heads.
+manifest: outputs/status1_pascal_2phase_duet_yolo11n_paperhead_t2/eval_manifest.json
+output: outputs/status1_pascal_2phase_duet_yolo11n_paperhead_t2/paper_metrics_results.json
+device: 0
+metric: map50
+split: val
+clamp_to_one: false
+
+checkpoint_aliases:
+  ref_voc_11_20: outputs/status1_reference_voc_11_20_yolo11n/task_1_reference_voc_11_20_best.pt
+  ref_clipart_1_10: outputs/status1_reference_clipart_1_10_yolo11n/task_1_reference_clipart_1_10_best.pt
+
+retention:
+  - name: RI_VOC_1_10_after_T2_paperhead
+    numerator:
+      checkpoint: final
+      data: data/pascal_voc_yolo/voc_1_10/data.yaml
+    denominator:
+      checkpoint: t1
+      data: data/pascal_voc_yolo/voc_1_10/data.yaml
+
+generalization:
+  - name: GI_VOC_11_20_at_T2_paperhead
+    numerator:
+      checkpoint: final
+      data: data/pascal_voc_yolo/voc_11_20/data.yaml
+    denominator:
+      checkpoint: ref_voc_11_20
+      data: data/pascal_voc_yolo/voc_11_20/data.yaml
+
+  - name: GI_Clipart_1_10_at_T2_paperhead
+    numerator:
+      checkpoint: final
+      data: data/clipart_paper_yolo/clipart_1_10/data.yaml
+    denominator:
+      checkpoint: ref_clipart_1_10
+      data: data/clipart_paper_yolo/clipart_1_10/data.yaml

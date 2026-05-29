@@ -16,6 +16,7 @@ DuET 论文指标评估脚本。
 import argparse
 import json
 import os
+import time
 import shutil
 import sys
 from pathlib import Path
@@ -33,7 +34,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 IMAGE_SUFFIXES = {".bmp", ".dng", ".jpeg", ".jpg", ".mpo", ".png", ".tif", ".tiff", ".webp"}
-EVAL_DATA_CACHE: dict[str, Path] = {}
+EVAL_DATA_CACHE: dict[tuple[str, str], Path] = {}
 
 
 def resolve_data_yaml_path(data_yaml: str | Path) -> Path:
@@ -131,7 +132,23 @@ def remap_local_label_to_global(src: Path, dst: Path, global_indices: list[int])
     dst.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
-def prepare_eval_data(data_yaml: str | Path) -> Path:
+def remove_tree_retry(path: Path, *, attempts: int = 5) -> None:
+    """Remove a temporary tree robustly on Windows."""
+    if not path.exists():
+        return
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.2 * (attempt + 1))
+    if last_error is not None:
+        raise last_error
+
+
+def prepare_eval_data(data_yaml: str | Path, *, split: str = "val") -> Path:
     """
     Convert local-label eval datasets to a temporary global-label dataset.
 
@@ -140,7 +157,7 @@ def prepare_eval_data(data_yaml: str | Path) -> Path:
     whose labels use those global ids and whose names/nc match the 20-class head.
     """
     data_yaml_path = resolve_data_yaml_path(data_yaml)
-    cache_key = str(data_yaml_path)
+    cache_key = (str(data_yaml_path), str(split))
     if cache_key in EVAL_DATA_CACHE:
         return EVAL_DATA_CACHE[cache_key]
     cfg = load_mapping(data_yaml_path)
@@ -175,7 +192,7 @@ def prepare_eval_data(data_yaml: str | Path) -> Path:
 
     eval_root = PROJECT_ROOT / "outputs" / "_eval_global_data" / data_yaml_path.parent.name
     if eval_root.exists():
-        shutil.rmtree(eval_root)
+        remove_tree_retry(eval_root)
     eval_root.mkdir(parents=True, exist_ok=True)
 
     prepared_cfg: dict[str, Any] = {
@@ -183,18 +200,25 @@ def prepare_eval_data(data_yaml: str | Path) -> Path:
         "nc": len(global_names),
         "names": global_names,
     }
-    for split in ("train", "val", "test"):
+    for split_name in (split,):
         records: list[tuple[Path, Path]] = []
-        for source in resolve_split_sources(data_yaml_path, cfg, split):
+        for source in resolve_split_sources(data_yaml_path, cfg, split_name):
             records.extend(iter_images(source))
         if not records:
             continue
-        prepared_cfg[split] = f"images/{split}"
+        prepared_cfg[split_name] = f"images/{split_name}"
         for image_path, relative_path in records:
-            dst_image = eval_root / "images" / split / relative_path
-            dst_label = eval_root / "labels" / split / relative_path.with_suffix(".txt")
+            dst_image = eval_root / "images" / split_name / relative_path
+            dst_label = eval_root / "labels" / split_name / relative_path.with_suffix(".txt")
             link_or_copy_image(image_path, dst_image)
             remap_local_label_to_global(infer_label_path(image_path), dst_label, global_indices)
+
+    if split not in prepared_cfg:
+        raise FileNotFoundError(f"No images found for split '{split}' in {data_yaml_path}")
+
+    # Ultralytics validates that both keys exist even when only one split is used.
+    prepared_cfg.setdefault("train", prepared_cfg[split])
+    prepared_cfg.setdefault("val", prepared_cfg[split])
 
     prepared_yaml = eval_root / "data.yaml"
     prepared_yaml.write_text(yaml.safe_dump(prepared_cfg, sort_keys=False, allow_unicode=True), encoding="utf-8")
@@ -290,7 +314,7 @@ def evaluate_checkpoint(
 ) -> float:
     """运行 YOLO 验证流程，并返回指定的 mAP 数值。"""
     checkpoint = str(checkpoint)
-    data_yaml = str(prepare_eval_data(data_yaml))
+    data_yaml = str(prepare_eval_data(data_yaml, split=split))
     key = (checkpoint, data_yaml, metric_name, str(imgsz or "default"))
     if key in cache:
         return cache[key]

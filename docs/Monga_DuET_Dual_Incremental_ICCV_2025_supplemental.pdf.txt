@@ -1,0 +1,730 @@
+     DuET: Dual Incremental Object Detection via Exemplar-Free Task Arithmetic
+                                                                                                                                                                                                                                                     Supplementary Material
+A. Detailed Evaluation Protocol and Metrics                                                                                                                                                                                                                       old Night Sunny and Daytime Sunny domains in the fi-
+                                                                                                                                                                                                                                                                  nal task \protect \mathcal  {T}_3 . Conversely, a lower value indicates significant
+This section provides a detailed discussion of the proposed                                                                                                                                                                                                       catastrophic forgetting.
+evaluation protocol and metrics for the DuIOD task. Ta-
+ble S1 outlines the training sequence that is followed for                                                                                                                                                                                                        A.2. Average Generalization Index
+four different DuIOD experiments, along with the detailed
+evaluation protocol that is used to comprehensively evalu-                                                                                                                                                                                                        The Generalisation Index ( GI_{\mathcal {D}_i, \mathcal {T}_j}  ) quantifies how well the
+ate the performance of different object detectors on the re-                                                                                                                                                                                                      model detects unseen classes from domain  \mathcal {D}_i  at task  \mathcal {T}_j  .
+spective DuIOD setting. Unlike existing metrics [1, 21, 24]                                                                                                                                                                                                       These classes were not part of the training set for task  \mathcal {T}_j  ,
+that focus only on catastrophic forgetting, we used the                                                                                                                                                                                                           meaning the model is required to generalise beyond its ex-
+Retention-Adaptability Index (RAI), which balances both                                                                                                                                                                                                           plicitly trained classes (see Table S1). For a given domain
+                                                                                                                                                                                                                                                                   \mathcal {D}_i  at task  \mathcal {T}_j  , the Generalization Index is computed as:
+knowledge retention and generalisation to unseen categories
+across evolving domains. We define RAI as the mean of the
+Average Retention Index (Avg RI) and Average Generali-                                                                                                                                                                                                                                        GI_{\mathcal {D}_i, \mathcal {T}_j} = \frac {\text {mAP}_{\text {unseen}}^{\mathcal {T}_j}(\mathcal {D}_i[\mathcal {C}_{\text {unseen}}])}{\text {mAP}_{\text {ref}}(\mathcal {D}_i[\mathcal {C}_{\text {unseen}}])}     (6)
+sation Index (Avg GI), which are discussed in the sections
+below.
+                                                                                                                                                                                                                                                                  Here,  \text {mAP}_{\text {unseen}}^{\mathcal {T}_j}(\mathcal {D}_i[\mathcal {C}_{\text {unseen}}])  is the mAP of the model at
+                  RAI = \frac {\text {Avg RI} + \text {Avg GI}}{2}  (1)
+                                                                                                                                                                                                                                                                  task  \mathcal {T}_j  on the unseen classes  \mathcal {C}_{\text {unseen}}  from domain  \mathcal {D}_i  , and
+A.1. Average Retention Index                                                                                                                                                                                                                                       \text {mAP}_{\text {ref}}(\mathcal {D}_i[\mathcal {C}_{\text {unseen}}])  is the reference mAP obtained by train-
+                                                                                                                                                                                                                                                                  ing the object detector solely on these unseen classes on do-
+For each domain  \mathcal {D}_i  corresponding to task  \mathcal {T}_i  where                                                                                                                                                                                     main  \mathcal {D}_i  . The Average Generalisation Index (Avg GI) over
+             , i \in \{1, \dots , T - 1\} 
+               we define the Retention Index  RI_{\mathcal {D}_i}  as:                                                                                                                                                                                            all relevant domain-task pairs is then computed as:
+
+                                                             RI_{\mathcal {D}_i} = \frac {\text {mAP}_{\text {old}}^{\mathcal {T}_T}(\mathcal {D}_i[\mathcal {C}_i])}{\text {mAP}_{\text {new}}^{\mathcal {T}_i}(\mathcal {D}_i[\mathcal {C}_i])}           (2)                                                \text {Avg GI} = \frac {1}{\mathcal {N}} \sum _{(\mathcal {D}_i, \mathcal {T}_j)} GI_{\mathcal {D}_i, \mathcal {T}_j}                                                                                   (7)
+
+
+Here,  \text {mAP}_{\text {old}}^{\mathcal {T}_T}(\mathcal {D}_i[\mathcal {C}_i])  denotes the mean Average Precision                                                                                                                                                                                                                                                             where  \mathcal {N}  is the total number of unseen-class domain-task
+(mAP) at IoU threshold = 0.5 of the object detector at the                                                                                                                                                                                                                                                                                                                        pairs considered in the evaluation.
+final task  \mathcal {T}_T  on the classes  \mathcal {C}_i  which were learned from do-                                                                                                                                                                                                                                                                                                                Continuing with the same example, the Avg GI is com-
+main  \mathcal {D}_i  , and  \text {mAP}_{\text {new}}^{\mathcal {T}_i}(\mathcal {D}_i[\mathcal {C}_i])  is the mAP when classes  \mathcal {C}_i                                                                                                                                                                                                                                  puted as the mean of the Generalization Index values for un-
+from domain  \mathcal {D}_i  were first encountered and learned, at task                                                                                                                                                                                                                                                                                                          seen classes across the Night Sunny (NS), Daytime Sunny
+ \mathcal {T}_i  . The Avg RI is then calculated                                     \scalebox {0.99}{ $ RI_{\text {NS}} = \frac {\text {mAP}_{\text {old}}^{\mathcal {T}_3}(\text {NS}[1:2])}{\text {mAP}_{\text {new}}^{\mathcal {T}_1}(\text {NS}[1:2])} \quad RI_{\text {DS}} = \frac {\text {mAP}_{\text {old}}^{\mathcal {T}_3}(\text {DS}[3:4])}{\text {mAP}_{\text {new}}^{\mathcal {T}_2}(\text {DS}[3:4])} $ } 
+                                                                                                                                                             as:                                                                                                                                                                                                                  (DS), and Daytime Foggy (DF) domains for a total of five
+                                                                                                                                                                                                                                                                  domain-task pairs- two from task  \mathcal {T}_2  and three from  \mathcal {T}_3  :
+                                                         \text {Avg RI} = \frac {1}{T - 1} \sum _{i=1}^{T - 1} RI_{\mathcal {D}_i}.                                                                                                                         (3)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       (8)
+
+To illustrate this, consider the multi-phase experiment (Ta-
+ble S1) with training sequence: Night Sunny [1:2] → Day-
+time Sunny [3:4] → Daytime Foggy [5:7]. The Avg RI is
+computed as the mean of the Retention Index values for
+                                                                                                                                                                                                                                                                                                  GI_{\text {DF}, \mathcal {T}_3} = \frac {\text {mAP}_{\text {unseen}}^{\mathcal {T}_3}(\text {DF}[1:4])}{\text {mAP}_{\text {ref}}(\text {DF}[1:4])}                                                                 (9)
+Night Sunny (NS) and Daytime Sunny (DS) domains at the
+final task  \mathcal {T}_3  as follows:
+
+                                                                                                                                                                                                                                                            (4)                                                                                                                                                                                                                                                       (10)
+
+                                                                                                                                                                                                                                                                  Hence, in this case, a higher Avg GI indicates better zero-
+                                                               \text {Avg RI} = \frac {RI_{\text {NS}} + RI_{\text {DS}}}{2}                                                                                                                                (5)   shot generalisation to unseen categories: NS [3:4], DS
+                                                                                                                                                                                                                                                                  [1:2], and DF [1:4] across incremental training. Conversely,
+Hence, in this case, a higher Avg RI indicates how effec-                                                                                                                                                                                                         a lower value suggests that the model is overfitting to seen
+tively the object detector has retained past knowledge from                                                                                                                                                                                                       classes and fails to generalise.
+                                                                                             Table S1. Training Sequence & Evaluation Protocol for different DuIOD experiments.
+
+             DuIOD                                                                                             Training Sequence                                                                                                                                                        Evaluation Protocol
+           Experiment                                                                Task                              Class IDs                                                                                                                     New Classes                          Old Classes                                                                                                                Unseen Classes
+                                                                                                                                                                                                                                                    Pascal Series Datasets
+          Two Phase                                                                       T1                                            1-10 from VOC                                                                                             mAPTnew
+                                                                                                                                                                                                                                                       1
+                                                                                                                                                                                                                                                          (VOC[1 : 10])                                          —                                                                                              —
+         VOC [1:10] →                                                                                                                                                                                                                                                                                                                                                                               mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                          2
+                                                                                                                                                                                                                                                                                                                                                                                                               (VOC[11 : 20])
+                                                                                          T2                                      11-20 from Clipart                                                                                            mAPTnew
+                                                                                                                                                                                                                                                     2
+                                                                                                                                                                                                                                                        (Clipart[11 : 20])             mAPTold2 (VOC[1 : 10])
+         Clipart [11:20]                                                                                                                                                                                                                                                                                                                                                                            mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                         2
+                                                                                                                                                                                                                                                                                                                                                                                                               (Clipart[1 : 10])
+                                                                                          T1                                  1-3 from Watercolor                                                                                              mAPTnew
+                                                                                                                                                                                                                                                    1
+                                                                                                                                                                                                                                                       (Watercolor[1 : 3])                                       —                                                                                           —
+                                                                                                                                                                                                                                                                                                                                                                                               mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                    2
+                                                                                                                                                                                                                                                                                                                                                                                                          (Watercolor[4 : 6])
+                                                                                          T2                                           4-6 from Comic                                                                                            mAPTnew
+                                                                                                                                                                                                                                                      2
+                                                                                                                                                                                                                                                         (Comic[4 : 6])             mAPTold2 (Watercolor[1 : 3])
+                                                                                                                                                                                                                                                                                                                                                                                                mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                       2
+                                                                                                                                                                                                                                                                                                                                                                                                            (Comic[1 : 3])
+         Multi Phase
+                                                                                                                                                                                                                                                                                                                                                                                               mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                    3
+                                                                                                                                                                                                                                                                                                                                                                                                          (Watercolor[4 : 6])
+        Watercolor [1:3]                                                                                                                                                                                                                                                            mAPTold3 (Watercolor[1 : 3])
+                                                                                          T3                                        7-13 from Clipart                                                                                            mAPTnew
+                                                                                                                                                                                                                                                      3
+                                                                                                                                                                                                                                                         (Clipart[7 : 13])                                                                                                                      mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                       3
+                                                                                                                                                                                                                                                                                                                                                                                                            (Comic[1 : 3])
+        → Comic [4:6]                                                                                                                                                                                                                                                                mAPTold3 (Comic[4 : 6])
+                                                                                                                                                                                                                                                                                                                                                                                                mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                       3
+                                                                                                                                                                                                                                                                                                                                                                                                           (Clipart[1 : 6])
+        → Clipart [7:13]                                                                                                                                                                                                                                                                                                                                                                           T4
+                                                                                                                                                                                                                                                                                                                                                                                               mAPunseen (Watercolor[4 : 6])
+        → VOC [14:20]                                                                                                                                                                                                                                                               mAPTold4 (Watercolor[1 : 3])
+                                                                                                                                                                                                                                                                                                                                                                                                mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                       4
+                                                                                                                                                                                                                                                                                                                                                                                                            (Comic[1 : 3])
+                                                                                          T4                                         14-20 from VOC                                                                                              mAPTnew
+                                                                                                                                                                                                                                                      4
+                                                                                                                                                                                                                                                         (VOC[14 : 20])              mAPTold4 (Comic[4 : 6])
+                                                                                                                                                                                                                                                                                                                                                                                                mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                                       4
+                                                                                                                                                                                                                                                                                                                                                                                                           (Clipart[1 : 6])
+                                                                                                                                                                                                                                                                                     mAPTold4 (Clipart[7 : 13])                                                                                       T4
+                                                                                                                                                                                                                                                                                                                                                                                                mAPunseen (VOC[1 : 13])
+                                                                                                                                                                                                                                       Diverse Weather Series Datasets
+         Two Phase                                                                        T1                         1-4 from Daytime Sunny                                                                                           mAPTnew
+                                                                                                                                                                                                                                           1
+                                                                                                                                                                                                                                              (Daytime Sunny[1 : 4])                                             —                                                                                    —
+     Daytime Sunny [1:4]                                                                                                                                                                                                                                                                                                                                                               mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                            2
+                                                                                                                                                                                                                                                                                                                                                                                                  (Daytime Sunny[5 : 7])
+                                                                                          T2                               5-7 from Night Sunny                                                                                                mAPTnew
+                                                                                                                                                                                                                                                    2
+                                                                                                                                                                                                                                                       (Night Sunny[5 : 7])      mAPTold2 (Daytime Sunny[1 : 4])
+     → Night Sunny [5:7]                                                                                                                                                                                                                                                                                                                                                                mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                              2
+                                                                                                                                                                                                                                                                                                                                                                                                   (Night Sunny[1 : 4])
+                                                                                          T1                               1-2 from Night Sunny                                                                                                mAPTnew
+                                                                                                                                                                                                                                                    1
+                                                                                                                                                                                                                                                       (Night Sunny[1 : 2])                                      —                                                                                    —
+                                                                                                                                                                                                                                                                                                                                                                                        mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                              2
+                                                                                                                                                                                                                                                                                                                                                                                                   (Night Sunny[3 : 4])
+       Multi Phase                                                                        T2                         3-4 from Daytime Sunny                                                                                           mAPTnew
+                                                                                                                                                                                                                                           2
+                                                                                                                                                                                                                                              (Daytime Sunny[3 : 4])               mAPTold2 (Night Sunny[1 : 2])
+     Night Sunny [1:2]                                                                                                                                                                                                                                                                                                                                                                 mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                            2
+                                                                                                                                                                                                                                                                                                                                                                                                  (Daytime Sunny[1 : 2])
+   → Daytime Sunny [3:4]                                                                                                                                                                                                                                                                                                                                                                mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                              3
+                                                                                                                                                                                                                                                                                                                                                                                                   (Night Sunny[3 : 4])
+                                                                                                                                                                                                                                                                                  mAPTold3 (Night Sunny[1 : 2])
+   → Daytime Foggy [5:7]                                                                  T3                         5-7 from Daytime Foggy                                                                                           mAPTnew
+                                                                                                                                                                                                                                           3
+                                                                                                                                                                                                                                              (Daytime Foggy[5 : 7])                                                                                                                       T3
+                                                                                                                                                                                                                                                                                                                                                                                       mAPunseen (Daytime Sunny[1 : 2])
+                                                                                                                                                                                                                                                                                 mAPTold3 (Daytime Sunny[3 : 4])
+                                                                                                                                                                                                                                                                                                                                                                                       mAPTunseen
+                                                                                                                                                                                                                                                                                                                                                                                            3
+                                                                                                                                                                                                                                                                                                                                                                                                  (Daytime Foggy[1 : 4])
+
+
+
+B. Loss Function Formulation                                                                                                                                                                                                                                        predictions with low confidence scores in  \mathbf {c}_{\text {old}}  :
+To ensure effective incremental learning in case of DuIOD,                                                                                                                                                                                                                                    \mathcal {M}_{\text {cls}}^{*} = \{ i \mid \max (\mathbf {c}_{\text {old}}^{(i)}) \geq \tau _{\text {cls}} \}                                   (13)
+we employ a combination of standard detector loss  \mathcal {L}_{\text {Detector}}  ,
+a modified distillation loss  \mathcal {L}_{\text {Distill}}^{*}  (discussed below), and the                                                                                                                                                                        where  \tau _{\text {cls}}  is an adaptive threshold computed as the 75th
+Directional Consistency Loss  \mathcal {L}_{\text {DC}}  (discussed in main paper                                                                                                                                                                                   percentile of  \max (\mathbf {c}_{\text {old}})  values.
+Section 3.5). This section details the formulation of                                                                                                                                                                                                                   Similarly, the bounding box regression distillation loss
+ \mathcal {L}_{\text {total}}  using these loss components.                                                                                                                                                                                                         is computed by computing the KL divergence between the
+                   Knowledge distillation plays a crucial role in mitigating                                                                                                                                                                                        softmax of bounding box outputs from the current and old
+catastrophic forgetting during incremental learning. In our                                                                                                                                                                                                         models:
+approach, we extend the standard distillation loss ( \mathcal {L}_{\text {Distill}}  )
+for incremental learning [13] by incorporating a dynamic                                                                                                                                                                                                                                                                                                                                                                                      (14)
+thresholding mechanism that filters low-confidence classifi-
+cation outputs and high-variance bounding box predictions                                                                                                                                                                                                           where  \mathcal {M}_{\text {bbox}}^{*}  filters out bounding boxes with high variance
+from the old (previous task) model.                                                                                                                                                                                                                                 in  \mathbf {b}_{\text {old}}  :
+                   Let  \mathcal {M}_{\theta _{t-1}}  represent the previous task model, and  \mathcal {M}_{\theta _t} 
+be the current model being trained on  \mathcal {T}_t  . Given input data                                                                                                                                                                                                                 \mathcal {M}_{\text {bbox}}^{*} = \{ j \mid \text {Var}(\mathbf {b}_{\text {old}}^{(j)}) \leq \tau _{\text {bbox}} \}                               (15)
+for the current task  \mathcal {X}_t  , the classification outputs and pre-
+dicted bounding boxes from both models will be:                                                                                                                                                                                                                     where  \tau _{\text {bbox}}  is an adaptive threshold computed as the 75th
+                                                                                                                                                                                                                                                                    percentile of bounding box variance values.
+                            \mathbf {z}_{\text {curr}} = \mathcal {M}_{\theta _t}(x), \quad \mathbf {z}_{\text {old}} = \mathcal {M}_{\theta _{t-1}}(x)                                                                                                (11)            The final modified distillation loss becomes:
+
+where  \mathbf {z} = (\mathbf {c}, \mathbf {b}) , with  \mathbf {c}  being classification logits and  \mathbf {b}                                                                                                                                                                                \mathcal {L}_{\text {Distill}}^{*} = \mathcal {L}_{\text {Distill}_{\text {cls}}}^{*} + \mathcal {L}_{\text {Distill}_{\text {bbox}}}^{*}    (16)
+the predicted bounding box coordinates.
+   The classification distillation loss is computed as:                                                                                                                                                                                                                                 \mathcal {L}_{\text {Detector}}  depends on the object detector used. In our
+                                                                                                                                                                                                                                                                    framework, we augment the detector losses of YOLO11
+                      \mathcal {L}_{\text {Distill}_{\text {cls}}}^{*} = \frac {1}{| \mathcal {M}_{\text {cls}}^{*} |} \sum _{i \in \mathcal {M}^*} \left \| \mathbf {c}_{\text {curr}}^{(i)} - \mathbf {c}_{\text {old}}^{(i)} \right \|^2            (12)         [10] and RT-DETR [18] object detectors with \protect \mathcal  {L}_{\text {Distill}}^{*} and
+                                                                                                                                                                                                                                                                     \mathcal {L}_{\text {DC}}  on the Ultralytics [10] pipeline.                     In the case of
+                                                                                                                                                                                                                                                                    YOLO11, the detection loss consists of classification loss,
+where  \mathcal {M}_{\text {cls}}^{*}  is the dynamically selected mask that excludes                                                                                                                                                                               bounding box regression loss, and Distribution Focal Loss
+[10], while in the case of RT-DETR, the detection loss fol-                                                                                                                                            of different model-merging algorithms, with and without
+lows a Hungarian matching strategy, consisting of classifi-                                                                                                                                            \protect \mathcal  {L}_{DC} . The results show that \protect \mathcal  {L}_{DC} consistently improves
+cation, bounding box, and Generalized IoU (GIoU) losses                                                                                                                                                the RAI across all methods, with an average RAI improve-
+[18].                                                                                                                                                                                                  ment of +3.56% among all merging methods, with DuET
+   Hence, the total loss for incremental tasks ( t \geq 2 ) is                                                                                                                                         achieving the best performance. Moreover, the bar charts in
+computed as:                                                                                                                                                                                           Figure S1 compare the L2 distance and cosine similarity be-
+                                                                                                                                                                                                       tween the merged model weights with both old and current
+            \mathcal {L}_{\text {Total}} = \mathcal {L}_{\text {Detector}} + \lambda _{\text {Distill}} \mathcal {L}_{\text {Distill}}^{*} + \lambda _{\text {DC}} \mathcal {L}_{\text {DC}}    (17)   model weights across different model-merging algorithms.
+                                                                                                                                                                                                       The results show that \protect \mathcal  {L}_{DC} significantly reduces L2 distance
+where  \lambda _{\text {Distill}}  and  \lambda _{\text {DC}}  are scaling coefficients that control                                                                                                   by 43.46% averaged across all methods, with DuET achiev-
+the impact of distillation and directional consistency losses,                                                                                                                                         ing the lowest values. Lower L2 distance suggests that af-
+respectively.                                                                                                                                                                                          ter incorporating \protect \mathcal  {L}_{DC} , the merged model lies closer to the
+                                                                                                                                                                                                       original models, ensuring effective knowledge integration
+C. Extended Ablation Studies                                                                                                                                                                           from both. Similarly, incorporation of \protect \mathcal  {L}_{DC} consistently
+C.1. Impact of Loss Components                                                                                                                                                                         improves cosine similarity across all methods by 0.23% av-
+                                                                                                                                                                                                       erage, with DuET achieving the highest values. Higher co-
+                                                                                                                                                                                                       sine similarity suggests that \protect \mathcal  {L}_{DC} helps the merged model
+Table S2. Performance comparison of different model-merging al-                                                                                                                                        better align with the original models.
+gorithms on VOC [1:10] \rightarrow  Clipart [11:20] depicting the impact of
+LDC , with YOLO11n [10] as the base detector. Among columns,
+                                                                                                                                                                                                       Table S3. Ablation studies of different loss components aug-
+best in bold, second best underlined.
+                                                                                                                                                                                                       mented with detector loss (\protect \mathcal  {L}_{\text {Detector}} ).
+    Model-merging                                                                                      Avg RI                             Avg GI                                   RAI
+                                                                           LDC                                                                                                                           Loss Component                                                                                       Avg RI (%)   Avg GI (%)   RAI (%)
+       algorithm                                                                                         (%)                                (%)                                     (%)
+                                                                                                                                                                                                         \protect \mathcal  {L}_{Detector} + \mathcal {L}_{\text {Distill}}                                     72.64        33.74       53.19
+  Fisher-Merging [20]                                                          ✗                        20.27                              17.15                                   18.71                 \protect \mathcal  {L}_{Detector} + \mathcal {L}_{\text {Distill}}^{*}                                 87.06        37.75       62.41
+  Fisher-Merging [20]                                                          ✓                        21.64                                24                                22.82 (+ 4.11)            \protect \mathcal  {L}_{Detector} + \mathcal {L}_{\text {Distill}}^{*} + \mathcal {L}_{\text {DC}}     87.44        44.54       65.99
+     MagMax [19]                                                               ✗                        65.05                              28.09                                   46.57
+     MagMax [19]                                                               ✓                        66.79                              28.28                               47.54 (+ 0.97)
+  Weight-Averaging [8]                                                         ✗                        66.42                              31.42                                   48.92
+                                                                                                                                                                                                       Impact of \protect \mathcal  {L}_{Distill}^{*} . Table S3 presents the ablation stud-
+  Weight-Averaging [8]                                                         ✓                        76.12                              37.53                               56.83 (+ 7.91)
+   EMR-Merging [7]                                                             ✗                        67.66                               34.4                                   51.03               ies of different loss components augmented with detector
+   EMR-Merging [7]                                                             ✓                        68.03                              36.46                               52.25 (+ 1.22)          loss (\protect \mathcal  {L}_{\text {Detector}} ). We observe that the inclusion of \protect \mathcal  {L}_{\text {Distill}}^{*} in-
+     DuET (Ours)                                                               ✗                        87.06                              37.75                                   62.41               stead of \protect \mathcal  {L}_{\text {Distill}} significantly improves all metrics, with a
+     DuET (Ours)                                                               ✓                        87.44                              44.54                               65.99 (+ 3.58)          +14.42% increase in Avg RI, +4.01% increase in Avg GI,
+                                                                                                                                                                                                       and +9.22% increase in RAI. The addition of \protect \mathcal  {L}_{\text {DC}} brings in
+                                                                                                                                                                                                       additional improvements, leading to the best performance
+                                                                                                                                                                                                       across all metrics.
+
+                                                                                                                                                                                                       C.2. Sensitivity Analysis for key hyper-parameters
+                                                                                                                                                                                                       Figure S2 shows the sensitivity analysis for key hyperpa-
+                                                                                                                                                                                                       rameters used in the DuET approach. Base scaling coeffi-
+                                                                                                                                                                                                       cient \alpha _{base} (Figure S2a) effectively controls the contribu-
+                                                                                                                                                                                                       tions from the old (prior task) model and current model;
+                                                                                                                                                                                                       hence, a value of 0.5 ensures a balanced trade-off between
+                                                                                                                                                                                                       past knowledge retention and new adaptation, while ex-
+                                                                                                                                                                                                       treme values (\alpha _{base} < 0.3 or \alpha _{base} > 0.7) significantly de-
+                                                                                                                                                                                                       grade RAI. The limiting factor \gamma  (Figure S2b) impacts task-
+Figure S1. Impact of \protect \mathcal  {L}_{DC} in (a) reducing L2 Distance and (b)                                                                                                                   merging, with \gamma = 0.1 giving optimal results for both Pas-
+improving cosine similarity. These results are obtained on the                                                                                                                                         cal Series and Diverse Weather Series datasets. The scaling
+VOC [1:10] → Clipart [11:20] experiment using YOLO11n [10]
+                                                                                                                                                                                                       coefficients \lambda _{Distill} and \lambda _{DC} (Figures S2c and S2d) con-
+as the base detector with Incremental Head and Sequential Fine-
+                                                                                                                                                                                                       trol the impact of Distillation and Directional Consistency
+tuning.
+                                                                                                                                                                                                       losses, respectively. We observe that, for both of them, a
+                                                                                                                                                                                                       value of 0.01 gives the best results and effectively helps
+Impact of \protect \mathcal  {L}_{DC} . Continuing the ablations from the main                                                                                                                         in mitigating catastrophic forgetting by improving retention
+paper (Section 6), in this section, we further investigate the                                                                                                                                         while preventing sign conflicts; deviations from these val-
+role of \protect \mathcal  {L}_{DC} . In Table S2, we compare the performance                                                                                                                          ues lead to reduced adaptability and degraded performance
+                                             (a)                                                                              (b)
+
+
+
+
+                                             (c)                                                                              (d)
+
+Figure S2. Sensitivity analysis of DuET approach to key hyperparameters. (a) shows the effect of varying base scaling coefficient
+\alpha _{base} . (b) illustrates the impact of the limiting factor \gamma  on RAI. (c) and (d) depicts the effect of varying scaling coefficients \lambda _{Distill} and
+\lambda _{DC} on RAI respectively.
+
+
+
+
+on both series of datasets.                                                                  that Avg RI remains consistently high across all permuta-
+                                                                                             tions ( > 78\%), and there are minor variations in RAI and
+Table S4. Influence of random domain and class permutations
+                                                                                             Avg RI with standard deviations of 1.72 and 4.12, respec-
+across three incremental tasks on the Diverse Weather Series
+dataset.                                                                                     tively. However, the slight variation in Avg GI, with a stan-
+                                                                                             dard deviation of 6.26, stems from domain shifts affecting
+         T1                    T2                    T3            Avg RI   Avg GI   RAI
+  Night Sunny [5:7]    Daytime Sunny [1:2]   Daytime Foggy [3:4]    83.49    51.01   67.25
+                                                                                             generalisation. This indicates that the proposed DuET ap-
+  Night Sunny [3:4]    Daytime Sunny [5:7]   Daytime Foggy [1:2]    80.39    51.76   66.08   proach maintains a consistent performance irrespective of
+  Night Sunny [1:2]    Daytime Sunny [3:4]   Daytime Foggy [5:7]    88.57    41.92   65.25
+                                                                                             the randomness in class-domain orders.
+ Daytime Foggy [1:2]    Night Sunny [3:4]    Daytime Sunny [5:7]    78.34    50.54   64.44
+ Daytime Sunny [1:2]   Daytime Foggy [3:4]    Night Sunny [5:7]     88.33    35.97   62.15
+                       Standard Deviation                            4.12     6.26   1.72    C.4. Complexity Analysis
+                                                                                             Table S11 presents a detailed complexity analysis of vari-
+C.3. Influence of random class-domain order                                                  ous methods evaluated in the multi-phase experiment: Wa-
+In real-world incremental learning scenarios, the sequence                                   tercolour [1:3] → Comic [4:6] → Clipart [7:13] → VOC
+in which new classes and domains are introduced can in-                                      [14:20]. Table S11 compares computational complexity in
+fluence knowledge retention and generalisation. To check                                     terms of GFLOPs, trainable parameters (in millions), aver-
+the sensitivity of the proposed DuET approach to such vari-                                  age inference speed (in milliseconds), and average memory
+ations, we conducted experiments with shuffled class or-                                     footprint (in gigabytes) across all incremental tasks. While
+ders while keeping the same domain progression (top three                                    training time (in hours) as evaluated on a single NVIDIA
+rows in Table S4) and shuffled domain orders while keep-                                     A100-PCIE-40GB on Daytime Sunny [1:4] → Night Rainy
+ing the same class sets (bottom three rows). We observe                                      [5:7] experiment is reported in Table S14. The results
+demonstrate that DuET retains the real-time detection ca-              ments—three from the Pascal Series and the remaining four
+pabilities of YOLO11n [10], effectively transforming it into           from the Diverse Weather Series datasets.
+a robust real-time incremental object detector with only a
+                                                                          We provide detailed results for the five two-phase exper-
+minimal increase in memory footprint (0.244 GB) com-
+                                                                       iments: VOC[1:10] → Clipart[11:20] (Table S7), Clipart
+pared to its unaltered counterpart, Sequential FT (0.235
+                                                                       [1:10] → VOC [11:20] (Table S8), Daytime Sunny [1:4]
+GB). Furthermore, since the proposed DuET approach does
+                                                                       → Night Sunny [5:7] (Table S12), Night Sunny [1:4] →
+not modify the base detector architecture, it preserves the
+                                                                       Daytime Sunny [5:7] (Table S9) and Daytime Sunny [1:4]
+same GFLOPs and the number of trainable parameters.
+                                                                       → Night Rainy [5:7] (Table S14). Meanwhile, the results
+   In contrast to other model-merging algorithms [7, 8, 19,            for the two multi-phase experiments—Watercolor [1:3] →
+20], which require storing task vectors—and consequently,              Comic [4:6] → Clipart [7:13] → VOC [14:20] and Night
+model weights—for every task, our approach is designed to              Sunny [1:2] → Daytime Sunny [3:4] → Daytime Foggy
+be more efficient and scalable. DuET maintains only two                [5:7]—are presented in Tables S10 and S13, respectively.
+shared task vectors at any given task: τold (derived from the
+previous phase’s model weights) and τcurr (derived from the               We evaluate DuET across all DuIOD experiments us-
+current phase’s model weights), along with the pre-trained             ing five detection backbones: DeformableDETR [26],
+model weights. This design utilizes the fact that knowledge            YOLO11n & YOLO11x [10], and RTDETR-l & RTDETR-
+from earlier tasks, T1 , T2 , . . . , Tt−2 , is already encapsulated   x [18]. Our results show that DuET consistently out-
+within the previous phase’s weights, θst−1 . Consequently,             performs the baselines in nearly all DuIOD experiments,
+DuET avoids the overhead of maintaining a complete his-                demonstrating its effectiveness in addressing the DuIOD
+tory of task vectors, resulting in a consistent memory foot-           task. Notably, DuET outperforms both CL-DETR [16]
+print across all incremental tasks (Tt , t ≥ 2), while in case         & LDB [22] on their respective backbones (Deformable
+of other TA approaches, the memory footprint grows lin-                DETR [26] & ViTDet [12]) with a +5.97% and +11.98%
+early with the number of tasks (Figure S3).                            RAI gain, preserving 80.3% vs. 66.85% and 50.99% vs.
+                                                                       41.74% Avg RI respectively (refer Tables S7 to S14). This
+D. Implementation Details                                              indicates that gains are method-specific and not back-
+                                                                       bone dependent.
+Our implementation is primarily based on the Ultralytics
+framework1 (v8.3.9), with YOLO11n [10] primarily serv-
+ing as the base detector, also extending to other variants of          E.2. Qualitative Visualizations
+YOLO11 and RT-DETR [18]. Following the default config-
+uration provided by Ultralytics, we used AdamW [17] opti-              In Figure S4, we present qualitative visualisations for var-
+miser with auto lr find and OneCycleLR scheduler, keeping              ious methods on the task sequence: Watercolour [1:3] →
+a batch size of 64. For every task, we trained the detec-              Comic [4:6] → Clipart [7:13] → VOC [14:20]. The detec-
+tor for 100 epochs, keeping five warm-up epochs with a                 tion results are shown for unseen classes: Watercolour [4:6],
+higher initial learning rate by a factor of 10. For the base           Comic [1:3], Clipart [1:6], and VOC [1:13] in the final task,
+task (t = 1), we use the default weight decay of 0.0005,               \protect \mathcal  {T}_4 . Our observations indicate that DuET consistently out-
+while for incremental tasks (t \geq 2), we slightly increase it        performs other methods by accurately detecting most ob-
+to 0.001 to prevent overfitting to new tasks and help prevent          jects across different domains and classes. Notably, in the
+catastrophic forgetting. The same protocol is used while               second row (Comic [1:3]), the bicycle class, which was
+preparing other baselines for a fair comparison. Moreover,             learned in \protect \mathcal  {T}_1 (Watercolor [1:3]), and the person class, in-
+unlike LDB [22] and CL-DETR [16], we keep all layers                   troduced in \protect \mathcal  {T}_2 (Comic [4:6]), are examined. We observe
+trainable during incremental training to ensure that shared            that only DuET successfully retains the knowledge from
+task vectors effectively capture the shift in shared knowl-            \protect \mathcal  {T}_1 and correctly detects the bicycle class in the unseen
+edge across incremental tasks.                                         Comic [1:3] domain. A similar trend is observed in the
+                                                                       fourth row (VOC [1:13]). Additionally, in the third row, the
+E. Comprehensive Results                                               car class, introduced in \protect \mathcal  {T}_1 , is not detected by other meth-
+                                                                       ods in the unseen Clipart [1:6] domain, whereas DuET con-
+E.1. Detailed analysis of Quantitative Results:                        sistently identifies it. These qualitative results further em-
+Tables S7 to S14 present the comprehensive results of var-             phasise DuET’s effectiveness in adapting to unseen classes
+ious methods on different DuIOD experiments across mul-                across different domains in the DuIOD task. A similar
+tiple base detectors. We conducted a total of seven DuIOD              trend is observed in the Diverse Weather Series (Figure S5),
+experiments—five two-phase and two multi-phase experi-                 where DuET consistently outperforms other methods by ac-
+                                                                       curately detecting most objects across various domains and
+   1 https://github.com/ultralytics/ultralytics                        classes.
+                                                                                       in subsequent tasks, are treated as background. DuET miti-
+                                                                                       gates this shift by explicitly decomposing model parameters
+                                                                                       into shared and task-specific components, and then merging
+                                                                                       these through TA with dynamic, layer-wise retention and
+                                                                                       adaptation weights (see Section 3.4). This strategy ensures
+                                                                                       that parameters crucial for previously learned object repre-
+                                                                                       sentations remain stable, thus preventing catastrophic for-
+                                                                                       getting and minimising the likelihood of previously learned
+                                                                                       objects being erroneously classified as background when
+                                                                                       they become unlabeled in subsequent tasks.
+
+                                                                                       G. Dataset Statistics
+Figure S3. Comparison of allocated memory footprint (in GB) for
+various model-merging approaches on the multi-phase experiment                         Following prior works [3, 11, 22, 23], we evaluate the
+with four tasks: Watercolor [1:3] (T1 ) → Comic [4:6] (T2 ) →                          DuET approach on two dataset series: the Pascal Series and
+Clipart [7:13] (T3 ) → VOC [14:20] (T4 ).                                              the Diverse Weather Series, which cover diverse environ-
+Table S5. Dataset Statistics: Class-wise distribution across dif-
+                                                                                       mental conditions and domain variations, respectively. Ta-
+ferent domains in Pascal Series datasets.                                              ble S5 presents the class-wise distribution, capturing cross-
+                                                                                       domain variations across four different domains: Water-
+ Class ID Class Name        Watercolor [9]   Comic [9]     Clipart [9]    VOC [4]      colour, Comic, Clipart, and VOC. Following [11, 14], we
+     1           bicycle         ✓              ✓              ✓             ✓
+     2             bird          ✓              ✓              ✓             ✓
+                                                                                       combined the PASCAL VOC 2007 and 2012 [4] datasets
+     3              car          ✓              ✓              ✓             ✓         to form the VOC domain, while the Watercolour, Comic,
+     4              cat          ✓              ✓              ✓             ✓         and Clipart domains were taken from [9]. Watercolour and
+     5              dog          ✓              ✓              ✓             ✓         Comic domains consist of six object categories, forming
+     6           person          ✓              ✓              ✓             ✓
+                                                                                       a subset of the 20 object categories present in Clipart and
+     7         aeroplane                                       ✓             ✓
+     8             boat                                        ✓             ✓
+                                                                                       VOC. We used class splits of 10+10 and 3+3+7+7 with
+     9            bottle                                       ✓             ✓         Class IDs as mentioned in Table S5 to conduct two-phase
+    10              bus                                        ✓             ✓         and multi-phase DuIOD experiments on the Pascal Series
+    11            chair                                        ✓             ✓         datasets, respectively. Similarly, Table S6 presents the
+    12             cow                                         ✓             ✓
+                                                                                       class-wise distribution across three different weather con-
+    13        diningtable                                      ✓             ✓
+    14            horse                                        ✓             ✓         ditions: Daytime Sunny, Night Sunny, and Daytime Foggy.
+    15        motorbike                                        ✓             ✓         Following [11, 22], the datasets are taken from BDD100k
+    16        pottedplant                                      ✓             ✓         [25], Foggy Cityscapes [2], and Adverse Weather [6]. Since
+    17            sheep                                        ✓             ✓
+                                                                                       each domain contains a common set of seven classes, we
+    18             sofa                                        ✓             ✓
+    19             train                                       ✓             ✓
+                                                                                       used class splits of 4+3 and 2+2+3, with Class IDs
+    20         tvmonitor                                       ✓             ✓         sorted in alphabetical order (as shown in Table S6), to per-
+       Total Classes              6               6            20            20        form two-phase and multi-phase DuIOD experiments on the
+       Train Images             1000            1000          500          16551       Diverse Weather Series datasets, respectively.
+        Val Images              1000            1000          500           4952
+
+Table S6. Dataset Statistics: Class-wise distribution across dif-
+                                                                                       H. Limitations and future works
+ferent weather conditions in Diverse Weather Series datasets.                          Since DuET is a task vector-based model-merging ap-
+Class ID Class Name     Daytime Sunny [25]   Night Sunny [25]   Daytime Foggy [2, 6]   proach, it inherits the limitations of existing task vector-
+   1            bike            ✓                   ✓                    ✓             based methods, and hence it cannot be generalised to mod-
+   2            bus             ✓                   ✓                    ✓
+   3            car             ✓                   ✓                    ✓             els trained from scratch and requires access to pre-trained
+   4          motor             ✓                   ✓                    ✓             object detectors to calculate shared task vectors at each
+   5          person            ✓                   ✓                    ✓
+   6           rider            ✓                   ✓                    ✓
+                                                                                       incremental task. This is a common limitation of task
+   7           truck            ✓                   ✓                    ✓             vector-based methods. Moreover, DuET merges shared
+     Total Classes               7                   7                   7             task vectors through a weighted linear interpolation mech-
+     Train Images             19317               25868                1829
+      Val Images               8289                7756                 688
+                                                                                       anism, which may be suboptimal for highly heterogeneous
+                                                                                       class shifts or extreme domain variations across incremen-
+F. Background Shift                                                                    tal tasks. Future work could explore more sophisticated
+                                                                                       non-linear merging approaches to better capture the shared
+Background shift is a major issue in IOD scenarios [15, 21],
+                                                                                       knowledge across tasks.
+where previously learned object categories, if unannotated
+Table S7. Results of various methods on VOC [1:10] → Clipart [11:20] with different base detectors. Among columns, best in bold,
+second best underlined.
+
+                                      T1                   T2: Clipart [11:20]
+                                                                                                 Avg RI Avg GI            RAI
+    Method        Base Detector     VOC      Old           New                  Unseen
+                                                                                                  (%)    (%)              (%)
+                                    [1:10] VOC [1:10] Clipart [11:20] Clipart [1:10] VOC [11:20]
+   LDB [22]        ViTDet     74.9±0.7       50.10±0.5      22.30±0.8      8.90±0.4      9.60±0.6    66.89±0.5 18.76±0.3 42.83±0.4
+ DuET (Ours)       ViTDet     74.9±0.2       54.20±0.4      17.60±0.2      17.90±0.3     11.80±0.4   72.36±0.2 32.63±0.3 52.50±0.2
+ CL-DETR [16] Deformable DETR 56.1±0.6       38.29±0.7       9.04±0.5      9.22±0.8      3.02±0.4    68.29±0.3 40.72±0.4 54.51±0.3
+ DuET (Ours) Deformable DETR 56.1±0.6        42.32±0.3       4.10±0.2      15.63±0.4     1.68±0.4    75.48±0.6 72.37±0.3 73.93±0.5
+ Sequential FT   RTDETR-l     87.1±0.6        0.00±0.0      55.00±0.7      0.00±0.0      32.20±0.5    0.00±0.0 18.85±0.6 9.43±0.4
+   LwF [13]      RTDETR-l     87.1±0.6        3.13±0.2      25.90±0.8      1.30±0.3      18.50±0.4    3.59±0.7 12.30±0.5 7.95±0.6
+   ERD [5]       RTDETR-l     87.1±0.6        1.74±0.3      56.00±0.8      1.42±0.2      37.80±0.5    2.00±0.1 23.74±0.6 12.87±0.8
+ DuET (Ours)     RTDETR-l     87.1±0.6       46.10±0.1      68.00±0.2      28.10±0.4     62.20±0.4   52.93±0.7 68.20±0.5 60.57±0.6
+ Sequential FT   RTDETR-x     89.2±0.5        0.00±0.0      56.52±0.7      0.33±0.2      30.43±0.6    0.00±0.0 17.66±0.4 8.83±0.3
+   LwF [13]      RTDETR-x     89.2±0.5       20.40±0.5      28.80±0.3      17.00±0.7     17.90±0.4   22.87±0.6 28.27±0.5 25.57±0.2
+   ERD [5]       RTDETR-x     89.2±0.5       22.60±0.7      55.20±0.8      3.83±0.3      32.80±0.4   25.34±0.5 22.73±0.1 24.04±0.8
+ DuET (Ours)     RTDETR-x     89.2±0.5       60.50±0.5      26.80±0.4      49.00±0.3     22.50±0.2   67.83±0.4 64.93±0.6 66.38±0.7
+ Sequential FT   YOLO11n      80.4±0.3        0.60±0.1      36.70±0.8      1.02±0.3      17.40±0.4    0.75±0.2 12.86±0.4 6.81±0.3
+   LwF [13]      YOLO11n      80.4±0.3       58.40±0.8       3.96±0.3      28.60±0.7     5.00±0.2    72.64±0.3 33.74±0.5 53.19±0.4
+   ERD [5]       YOLO11n      80.4±0.3       55.20±0.4      20.60±0.7      30.50±0.5     16.70±0.8   68.66±0.4 43.68±0.3 56.17±0.6
+ DuET (Ours)     YOLO11n      80.4±0.3       70.30±0.3       8.45±0.3      33.80±0.3     12.80±0.3   87.44±0.2 44.54±0.1 65.99±0.3
+ Sequential FT   YOLO11x      88.4±0.5        0.00±0.0      43.50±0.8      0.00±0.0      16.10±0.6    0.00±0.0 10.13±0.7 5.07±0.4
+   LwF [13]      YOLO11x      88.4±0.5       57.30±0.5      38.00±0.3      40.30±0.7     30.30±0.4   64.82±0.6 74.57±0.2 69.70±0.3
+   ERD [5]       YOLO11x      88.4±0.5       23.70±0.7      46.80±0.8      26.00±0.5     23.60±0.3   26.81±0.4 50.66±0.2 38.74±0.8
+ DuET (Ours)     YOLO11x      88.4±0.5       74.30±0.3      52.40±0.2      44.50±0.1     46.80±0.1   84.05±0.5 90.73±0.3 87.39±0.6
+
+Table S8. Results of various methods on Clipart [1:10] → VOC [11:20] with different base detectors. Among columns, best in bold,
+second best underlined.
+
+                                       T1                     T2: VOC [11:20]
+                                                                                                  Avg RI Avg GI           RAI
+    Method        Base Detector     Clipart      Old         New               Unseen
+                                                                                                   (%)    (%)             (%)
+                                     [1:10] Clipart [1:10] VOC [11:20] VOC [1:10] Clipart [11:20]
+   LDB [22]        ViTDet     36.4±0.4         16.30±0.3     23.80±0.5     7.10±0.2      9.10±0.6    44.78±0.7 15.81±0.4 30.30±0.8
+ DuET (Ours)       ViTDet     36.4±0.2         31.20±0.3     34.50±0.3    24.40±0.3      1.60±0.1    85.71±0.1 18.23±0.2 51.97±0.3
+ CL-DETR [16] Deformable DETR 10.5±0.6          8.88±0.7     27.02±0.4     3.88±0.3     10.33±0.8    84.57±0.5 54.35±0.2 69.46±0.7
+ DuET (Ours) Deformable DETR 10.5±0.2           9.54±0.1     20.08±0.1     3.17±0.2     10.23±0.2    90.86±0.1 53.22±0.2 72.04±0.2
+ Sequential FT   RTDETR-l     44.2±0.5          0.00±0.0     81.50±0.7     0.00±0.0     30.80±0.6    0.00±0.0 29.79±0.8 14.90±0.4
+   LwF [13]      RTDETR-l     44.2±0.4          2.81±0.2     66.00±0.7     0.73±0.3     37.20±0.5    6.36±0.6 36.39±0.4 21.38±0.8
+   ERD [5]       RTDETR-l     44.2±0.5          0.37±0.3     81.20±0.6     2.81±0.4     27.50±0.7    0.84±0.2 28.21±0.8 14.53±0.5
+ DuET (Ours)     RTDETR-l     44.2±0.1         37.80±0.2      8.17±0.1    29.40±0.2     13.20±0.2    85.52±0.1 29.64±0.2 57.58±0.1
+ Sequential FT   RTDETR-x     47.0±0.6          0.00±0.0     81.60±0.7     0.00±0.0     35.70±0.5    0.00±0.0 37.27±0.8 18.64±0.3
+   LwF [13]      RTDETR-x     47.0±0.5          2.42±0.3     64.30±0.6     1.25±0.2     35.70±0.8    5.15±0.4 37.97±0.7 21.56±0.5
+   ERD [5]       RTDETR-x     47.0±0.4          0.67±0.2     82.00±0.7     0.93±0.3     34.40±0.6    1.43±0.5 36.43±0.8 18.93±0.4
+ DuET (Ours)     RTDETR-x     47.0±0.2         41.10±0.2      4.64±0.2    21.30±0.1      5.27±0.2    87.45±0.2 17.44±0.2 52.45±0.2
+ Sequential FT   YOLO11n      47.1±0.7          0.00±0.0     73.60±0.6     0.00±0.0     29.10±0.5    0.00±0.0 30.12±0.8 15.06±0.4
+   LwF [13]      YOLO11n      47.1±0.6         31.40±0.7      4.00±0.5    20.30±0.3      5.36±0.8    66.67±0.4 18.17±0.2 42.42±0.7
+   ERD [5]       YOLO11n      47.1±0.5         33.20±0.3      0.72±0.6    20.70±0.4      0.63±0.7    70.49±0.2 13.53±0.8 42.01±0.5
+ DuET (Ours)     YOLO11n      47.1±0.2         32.70±0.1     44.00±0.2    21.70±0.2     26.10±0.1    69.43±0.2 40.51±0.2 54.97±0.1
+ Sequential FT   YOLO11x      36.3±0.5          0.00±0.0     77.50±0.6     0.00±0.0     33.50±0.8    0.00±0.0 38.15±0.7 19.08±0.4
+   LwF [13]      YOLO11x      36.3±0.4         25.10±0.3      0.96±0.8    13.00±0.5      1.59±0.6    69.15±0.4 9.16±0.7 39.16±0.3
+   ERD [5]       YOLO11x      36.3±0.5         29.40±0.7      0.52±0.3    12.90±0.6      0.68±0.2    80.99±0.8 8.07±0.4 44.53±0.5
+ DuET (Ours)     YOLO11x      36.3±0.2         19.30±0.1      1.25±0.2     6.06±0.2      3.03±0.1    53.17±0.2 6.88±0.1 30.03±0.2
+Table S9. Results of various methods on Daytime Sunny [1:4] → Night Sunny [5:7] with different base detectors. Among columns, best
+in bold, second best underlined.
+
+                                 T1                T2: Night Sunny [5:7]
+                              Daytime     Old        New              Unseen          Avg RI Avg GI RAI
+   Method      Base Detector
+                               Sunny   Daytime       Night       Night     Daytime       (%)      (%)       (%)
+                                [1:4] Sunny [1:4] Sunny [5:7] Sunny [1:4] Sunny [5:7]
+   LDB [22]        VitDet     45.3±0.6  0.50±0.3   15.10±0.4    0.30±0.5   16.90±0.7   1.10±0.2 22.41±0.3 11.76±0.6
+ DuET (Ours)       VitDet     45.3±0.2 12.48±0.3   11.60±0.3    4.33±0.2    9.60±0.2  27.55±0.2 28.22±0.1 27.89±0.2
+ CL-DETR [16] Deformable DETR 46.3±0.4 27.41±0.5   31.94±0.6   19.85±0.3   32.55±0.4 59.20±0.2 54.96±0.5 57.08±0.4
+ DuET (Ours) Deformable DETR 46.3±0.2   39.1±0.1   15.06±0.2   28.17±0.2    4.33±0.1  84.45±0.2 33.45±0.1 58.95±0.2
+ Sequential FT   RTDETR-l     57.2±0.5  0.00±0.0   77.40±0.7    2.52±0.3   39.80±0.6   0.00±0.0 35.36±0.8 17.68±0.4
+   LwF [13]      RTDETR-l     57.2±0.4  0.15±0.2   76.40±0.7    0.03±0.1   41.50±0.5   0.26±0.2 35.01±0.8 17.64±0.4
+   ERD [5]       RTDETR-l     57.2±0.5  0.09±0.1   80.50±0.7    0.04±0.1   39.80±0.6   0.16±0.2 33.59±0.8 16.88±0.4
+ DuET (Ours)     RTDETR-l     57.2±0.2 27.30±0.1    8.63±0.2   20.10±0.2    7.88±0.1  47.73±0.2 21.00±0.1 34.37±0.2
+ Sequential FT   RTDETR-x     61.0±0.6  0.00±0.0   84.80±0.7    0.00±0.0   40.80±0.5   0.00±0.0 33.77±0.8 16.89±0.3
+   LwF [13]      RTDETR-x     61.0±0.5  0.57±0.2   79.10±0.7    0.61±0.3   40.60±0.6   0.93±0.2 34.03±0.8 17.48±0.4
+   ERD [5]       RTDETR-x     61.0±0.4  0.81±0.2   84.80±0.7    0.98±0.3   38.90±0.6   1.33±0.2 32.87±0.8 17.10±0.4
+ DuET (Ours)     RTDETR-x     61.0±0.2 34.40±0.1    6.51±0.2   28.10±0.2    6.02±0.1  56.39±0.2 24.15±0.1 40.27±0.2
+ Sequential FT   YOLO11n      49.4±0.3  0.00±0.0   62.20±0.5   12.60±0.4   35.90±0.3   0.00±0.0 45.88±0.6 22.94±0.3
+   LwF [13]      YOLO11n      49.4±0.2 27.60±0.4    0.34±0.6   21.30±0.3    0.67±0.5  55.87±0.3 21.88±0.7 38.88±0.6
+   ERD [5]       YOLO11n      49.4±0.5 33.00±0.4   34.00±0.3   26.10±0.6   29.10±0.7 66.80±0.5 53.04±0.3 59.92±0.4
+ DuET (Ours)     YOLO11n      49.4±0.2 43.50±0.1   22.20±0.3   31.60±0.2   27.40±0.1 88.06±0.2 56.95±0.1 72.51±0.2
+ Sequential FT   YOLO11x      64.2±0.6 12.50±0.4   68.60±0.7   18.80±0.3   46.00±0.8 19.47±0.2 47.60±0.5 33.54±0.4
+   LwF [13]      YOLO11x      64.2±0.7 62.10±0.6    0.04±0.2   42.40±0.8    0.01±0.1  96.73±0.5 27.79±0.4 62.26±0.8
+   ERD [5]       YOLO11x      64.2±0.6 62.20±0.7    0.06±0.2   42.70±0.8    0.07±0.1  95.95±0.5 28.04±0.4 62.46±0.8
+ DuET (Ours)     YOLO11x      64.2±0.2 61.60±0.1   12.90±0.2   44.70±0.2   17.10±0.1 96.88±0.2 42.41±0.1 69.18±0.2
+
+
+Table S10. Results of various methods on Night Sunny [1:4] → Daytime Sunny [5:7] with different base detectors. Among columns, best
+in bold, second best underlined.
+
+                                T1               T2: Daytime Sunny [5:7]
+                               Night     Old        New               Unseen                          Avg RI Avg GI         RAI
+   Method      Base Detector
+                              Sunny     Night     Daytime     Daytime        Night                     (%)    (%)           (%)
+                               [1:4] Sunny [1:4] Sunny [5:7] Sunny [1:4] Sunny [5:7]
+   LDB [22]        ViTDet     37.0±0.6 0.40±0.4   18.30±0.7    0.10±0.2    14.30±0.5                   1.08±0.3 20.66±0.7 10.87±0.8
+ DuET (Ours)       VitDet     37.0±0.2 5.50±0.1   18.33±0.1    3.33±0.5    14.70±0.2                  14.86±0.1 24.80±0.2 19.83±0.1
+ CL-DETR [16] Deformable DETR 48.8±0.7 25.90±0.8  45.70±0.5   19.88±0.6    41.33±0.2                  53.04±0.7 55.64±0.3 54.34±0.8
+ DuET (Ours) Deformable DETR 48.8±0.2 38.81±0.1    4.24±0.2   29.09±0.1     7.59±0.2                  79.48±0.1 37.69±0.2 58.59±0.2
+ Sequential FT   RTDETR-l     70.0±0.6 0.00±0.0   58.90±0.7    0.00±0.0    40.80±0.5                   0.00±0.0 24.64±0.8 12.32±0.3
+   LwF [13]      RTDETR-l     70.0±0.7 8.73±0.8   21.80±0.5    6.00±0.6     8.37±0.4                  12.47±0.7 10.30±0.3 11.39±0.8
+   ERD [5]       RTDETR-l     70.0±0.6 1.09±0.7   57.60±0.5    1.86±0.8    43.10±0.4                   1.56±0.7 27.65±0.6 14.61±0.3
+ DuET (Ours)     RTDETR-l     70.0±0.2 48.70±0.2   1.86±0.1   43.80±0.2     1.03±0.1                  69.57±0.2 38.91±0.2 54.24±0.2
+ Sequential FT   RTDETR-x     73.3±0.7 0.00±0.0   58.80±0.8    0.00±0.0    44.10±0.6                   0.00±0.0 24.39±0.7 12.20±0.3
+   LwF [13]      RTDETR-x     73.3±0.6 10.70±0.7   9.25±0.5    6.02±0.6     7.66±0.4                  14.60±0.7 9.17±0.3 11.89±0.8
+   ERD [5]       RTDETR-x     73.3±0.7 7.03±0.8   57.00±0.5    0.93±0.6    42.50±0.4                   9.59±0.7 24.27±0.8 16.93±0.3
+ DuET (Ours)     RTDETR-x     73.3±0.2 66.30±0.2   6.40±0.1   58.90±0.2     5.26±0.1                  90.45±0.2 51.19±0.2 70.82±0.2
+ Sequential FT   YOLO11n      50.1±0.7 0.12±0.8   37.60±0.5    0.25±0.6     25.8±0.4                   0.24±0.7 19.48±0.8 9.86±0.3
+   LwF [13]      YOLO11n      50.1±0.6 39.00±0.7   0.29±0.2   33.90±0.8     1.51±0.3                  77.84±0.5 35.44±0.7 56.64±0.4
+   ERD [5]       YOLO11n      50.1±0.7 39.60±0.6   0.06±0.2   34.20±0.8     0.04±0.1                  79.04±0.5 34.65±0.7 56.85±0.4
+ DuET (Ours)     YOLO11n      50.1±0.2 47.10±0.2  20.10±0.1   41.30±0.2    19.10±0.1                  94.01±0.2 56.03±0.2 75.02±0.2
+ Sequential FT   YOLO11x      76.3±0.7 0.33±0.8   50.20±0.5    2.62±0.6    44.60±0.4                   0.43±0.7 28.51±0.8 14.47±0.3
+   LwF [13]      YOLO11x      76.3±0.8 67.50±0.7   0.66±0.2   50.10±0.8     0.23±0.1                  88.47±0.5 39.16±0.7 63.82±0.4
+   ERD [5]       YOLO11x      76.3±0.7 67.70±0.8   0.46±0.2   51.30±0.8     0.25±0.1                  88.73±0.5 40.10±0.7 64.42±0.4
+ DuET (Ours)     YOLO11x      76.3±0.2 22.60±0.1  43.70±0.2   21.60±0.2    40.00±0.1                  29.62±0.2 40.58±0.2 35.10±0.2
+Table S11. Computational complexity analysis of various methods evaluated on the multi-phase experiment: Watercolor [1:3] → Comic
+[4:6] → Clipart [7:13] → VOC [14:20]. The inference speed and memory footprint are averaged across all incremental tasks.
+
+                                                                      Trainable     Avg. Inference    Avg. Memory
+                 Method             Base Detector        GFLOPs
+                                                                     Params (M)      Speed (ms)      Footprint (GB)
+              Sequential FT       YOLO11n [10]              6.3         2.58            9.150             0.235
+                LwF [13]          YOLO11n [10]              6.3         2.58            9.125             0.261
+                ERD [5]           YOLO11n [10]              6.3         2.58            9.075             0.257
+                LDB [22]            ViTDet [12]           1829.61      110.52          137.92             1.818
+              CL-DETR [16]     Deformable DETR [26]        11.77        39.85          39.075             0.789
+              DuET (Ours)         YOLO11n [10]              6.3         2.58              4.4             0.244
+
+
+
+
+Figure S4. Qualitative comparisons on Pascal Series multi-phase experiment: Watercolour [1:3] → Comic [4:6] → Clipart [7:13] → VOC
+[14:20] for different methods on the DuIOD task. The four rows display detection results on unseen classes: Watercolour [4:6], Comic
+[1:3], Clipart [1:6], and VOC [1:13] on the final task \protect \mathcal  {T}_4 . (zoomed in for best view).
+
+
+
+
+Figure S5. Qualitative comparisons on Diverse Series multi-phase experiment: Night Sunny [1:2] → Daytime Sunny [3:4] → Daytime
+Foggy [5:7] for different methods on the DuIOD task. The four rows display detection results on unseen classes: Night Sunny [3:4],
+Daytime Sunny [1:2], and Daytime Foggy [1:4] on the final task \protect \mathcal  {T}_3 . (zoomed-in for best view).
+Table S12. Results of various methods on Watercolor [1:3] →
+                                                                       Algorithm 1: DuET Training Algorithm
+Comic [4:6] → Clipart [7:13] → VOC [14:20] with different base
+detectors. Among columns, best in bold, second best underlined.        Input: Pre-trained model weights: \theta _0 , Sequence of tasks:
+                                                                                \ifmmode \lbrace \else \textbraceleft \fi T_1, T_2, \dots , T_T\}.
+                                                                       Output: Final model weights: \theta _T .
+   Method      Base Detector   Avg RI (%) Avg GI (%) RAI (%)
+                                                                     1 Initialize model with pre-trained weights: \theta _0 ;
+  LDB [22]        ViTDet        86.08±0.6   19.57±0.5   52.83±0.4    2 for t = 1, 2, \dots , T do
+DuET (Ours)       ViTDet        65.57±0.2   40.44±0.1   53.01±0.2    3      if t = 1 then
+CL-DETR [16] Deformable DETR    71.73±0.5   36.63±0.6   54.18±0.4    4              Train model on task T_1 using \protect \mathcal  {L}_{\text {Detector}} ;
+DuET (Ours) Deformable DETR     88.54±0.2   34.81±0.1   61.68±0.2    5              Update weights: \theta _1 \gets \theta _0 - \eta \cdot \nabla _{\theta } \mathcal {L}_{\text {Detector}} ;
+Sequential FT   RTDETR-l         0.00±0.0   7.76±0.4    3.88±0.3     6              Decompose weights:
+  LwF [13]      RTDETR-l         0.40±0.2   13.47±0.7   6.94±0.5     7              \theta _0 \rightarrow [\theta _{s_0}, \theta _{\tau _0}], \theta _1 \rightarrow [\theta _{s_1}, \theta _{\tau _1}];
+  ERD [5]       RTDETR-l         1.05±0.4   17.91±0.6   9.48±0.3     8              Compute shared task vector: \tau _{s_1} = \theta _{s_1} - \theta _{s_0} ;
+DuET (Ours)     RTDETR-l        24.75±0.2   22.89±0.2   23.82±0.1    9              Compute task-specific task vector: \tau _{\tau _1} \gets \theta _{\tau _1} ;
+Sequential FT   RTDETR-x         0.00±0.0   6.35±0.4    3.18±0.2
+                                                                    10      else
+                                                                    11              Initialize: \theta _t \gets \theta _{t-1} ;
+  LwF [13]      RTDETR-x        65.51±0.8   16.69±0.3   41.10±0.7
+                                                                    12              Train model on task T_t using \protect \mathcal  {L}_{\text {Total}} ;
+  ERD [5]       RTDETR-x         0.05±0.1   10.42±0.2   5.24±0.3
+                                                                    13              Update weights: \theta _t \gets \theta _{t-1} - \eta \cdot \nabla _{\theta } \mathcal {L}_{\text {Total}} ;
+DuET (Ours)     RTDETR-x        40.80±0.2   18.88±0.2   29.84±0.1
+                                                                    14              Decompose weights:
+Sequential FT   YOLO11n          0.00±0.0   11.05±0.5   5.53±0.3    15              \theta _{t-1} \rightarrow [\theta _{s_{t-1}}, \theta _{\tau _{t-1}}], \theta _t \rightarrow [\theta _{s_t}, \theta _{\tau _t}];
+  LwF [13]      YOLO11n         52.66±0.6   17.01±0.4   34.84±0.3   16              Compute shared task vectors:
+  ERD [5]       YOLO11n         54.76±0.5   41.13±0.4   47.95±0.7   17              \tau _{\text {old}} = \tau _{s_{t-1}} = \theta _{s_{t-1}} - \theta _{s_0} ;
+DuET (Ours)     YOLO11n         89.30±0.2   42.60±0.1   65.95±0.2   18              \tau _{\text {curr}} = \tau _{s_t} = \theta _{s_t} - \theta _{s_0} ;
+
+Sequential FT   YOLO11x          0.00±0.0   10.21±0.4   5.11±0.3    19              Compute task-specific task vectors:
+  LwF [13]      YOLO11x         10.56±0.3   17.46±0.5   14.01±0.2   20              \tau _{t_{\text {old}}} = \theta _{\tau _{t-1}} ,                 \tau _{t_{\text {curr}}} = \theta _{\tau _{t}} ;
+
+  ERD [5]       YOLO11x         54.19±0.6   8.49±0.2    31.34±0.8   21              Update shared weights using DuET:
+DuET (Ours)     YOLO11x         96.72±0.2   26.49±0.1   61.61±0.2                        (\theta _{s_t})_{\text {incre}} \gets \textbf {DuET}(\tau _{\text {curr}}, \tau _{\text {old}}, \theta _{s_0});
+                                                                    22              Update task-specific weights:
+                                                                                         (\theta _{\tau _t})_{\text {incre}} \gets [\tau _{t_{\text {old}}}, \tau _{t_{\text {curr}}}];
+Table S13. Results of various methods on Night Sunny [1:2] →
+                                                                    23              Load new updated weights:
+Daytime Sunny [3:4] → Daytime Foggy [5:7] with different base
+                                                                                         \theta _t \gets [(\theta _{s_t})_{\text {incre}}, (\theta _{\tau _t})_{\text {incre}}];
+detectors. Among columns, best in bold, second best underlined.
+                                                                    24      end
+                                                                    25 end
+   Method      Base Detector   Avg RI (%) Avg GI (%) RAI (%)        26 return \theta _T ;
+  LDB [22]        ViTDet        50.50±0.6   5.42±0.7    27.96±0.5
+DuET (Ours)       VitDet        39.87±0.2   17.12±0.1   28.50±0.2
+CL-DETR [16] Deformable DETR    64.26±0.3   43.46±0.5   53.86±0.6
+DuET (Ours) Deformable DETR     62.99±0.2   45.11±0.1   54.05±0.2
+Sequential FT   RTDETR-l         0.00±0.0   14.97±0.4   7.49±0.3
+  LwF [13]      RTDETR-l        14.76±0.2   1.24±0.3    8.00±0.5       Algorithm 2: DuET Task Arithmetic Algorithm
+  ERD [5]       RTDETR-l         5.40±0.4   15.83±0.6   10.62±0.3       Input: Parameters: Shared pre-trained weights: \theta _{s_0} , Old
+DuET (Ours)     RTDETR-l        20.76±0.2   10.55±0.2   15.66±0.1              Task Vector: \tau _{\text {old}} , Current Task Vector: \tau _{\text {curr}}
+Sequential FT   RTDETR-x         0.00±0.0   22.74±0.4   11.37±0.3              Hyperparameters: Limiting Factor: \gamma , Base
+                                                                               Scaling Coefficient: \alpha _{\text {base}} , Numerical Stability
+  LwF [13]      RTDETR-x         7.62±0.3   8.86±0.2    8.24±0.4
+                                                                               constant: \epsilon 
+  ERD [5]       RTDETR-x         3.02±0.2   19.16±0.3   11.09±0.2
+                                                                        Output: Updated inremental shared weights: \theta _{s_t}^{\text {incre}}
+DuET (Ours)     RTDETR-x        27.39±0.2   23.65±0.1   25.52±0.2
+                                                                      1 for Model Layer: l = 1,2,\dots ,L do
+Sequential FT   YOLO11n          0.00±0.0   30.51±0.6   15.26±0.5
+                                                                      2                   p_l \;=\; \frac {\|\tau _{\text {old}}^l\| - \|\tau _{\text {curr}}^l\|}{\|\tau _{\text {old}}^l + \tau _{\text {curr}}^l\| + \epsilon }, 
+  LwF [13]      YOLO11n         27.94±0.7   23.78±0.5   25.86±0.6
+  ERD [5]       YOLO11n         44.60±0.6   39.40±0.5   42.00±0.3     3                   \delta _l = \gamma \cdot \tanh (p_l) 
+DuET (Ours)     YOLO11n         88.57±0.2   41.92±0.1   65.25±0.2     4                   \alpha _l = \alpha _{\text {base}} + \text {clamp} \ (\delta _l, -\gamma , \gamma ) 
+Sequential FT   YOLO11x          0.00±0.0   18.16±0.4   9.08±0.3      5                   \beta _l = 1 - \alpha _l 
+
+  LwF [13]      YOLO11x         19.57±0.3   28.44±0.5   24.01±0.2     6                   (\theta _{s_t}^l)_{\text {incre}} = \theta _{s_0}^l + \alpha _l \cdot \tau _{\text {old}}^l + \beta _l \cdot \tau _{\text {curr}}^l 
+
+  ERD [5]       YOLO11x         45.85±0.6   37.38±0.2   41.62±0.8     7     end
+DuET (Ours)     YOLO11x         43.46±0.2   38.37±0.1   40.92±0.2     8  (\theta _{s_t})_{\text {incre}} = \{(\theta _{s_t}^l)_{\text {incre}}\}_{l=1}^{L} 
+                                                                      9     return (\theta _{s_t})_{\text {incre}}
+Table S14. Results of various methods on Daytime Sunny [1:4] → Night Rainy [5:7] with different base detectors. Among columns, best
+in bold, second best underlined. Training time is reported on single NVIDIA A100-PCIE-40GB.
+
+                             Training                                       T1                T2: Night Rainy [5:7]
+                                     Time Daytime                                     Old       New              Unseen          Avg RI Avg GI RAI
+   Method      Base Detector
+                             (\protect \mathcal  {T}_1 + \mathcal {T}_2 ) Sunny    Daytime      Night       Night     Daytime      (%)       (%)       (%)
+                                (hours)                                    [1:4] Sunny [1:4] Rainy [5:7] Rainy [1:4] Sunny [5:7]
+   LDB [22]        VitDet           23.73                                 45.3±0.6  1.40±0.3   8.10±0.4    0.02±0.5   16.10±0.7  3.09±0.2 21.02±0.3 12.05±0.6
+ DuET (Ours)       VitDet           24.13                                 45.3±0.2  2.02±0.3  16.10±0.1    1.58±0.3   15.20±0.2  4.46±0.2 22.47±0.1 13.47±0.2
+ CL-DETR [16] Deformable DETR 91.96                                       46.3±0.4 26.26±0.4   9.75±0.5    7.41±0.6   14.88±0.3 56.72±0.4 53.93±0.2 55.33±0.5
+ DuET (Ours) Deformable DETR 92.63                                        46.3±0.2 26.75±0.1   3.33±0.2    7.98±0.2    13.9±0.1  57.78±0.2 54.58±0.1 56.18±0.2
+ CL-DETR [16]    RT-DETR-l          33.87                                 57.2±0.4  5.11±0.5   28.1±0.6    5.04±0.3    14.3±0.4  8.93±0.2 20.82±0.5 14.88±0.4
+ DuET (Ours)     RT-DETR-l          33.89                                 57.2±0.4  11.8±0.1  14.90±0.2   12.50±0.2   17.30±0.1 20.63±0.2 36.50±0.1 28.57±0.2
+   LwF [13]      YOLO11n            11.01                                 49.4±0.2 21.50±0.4   0.17±0.6    9.36±0.3    0.55±0.5  43.52±0.3 17.78±0.7 30.65±0.6
+   ERD [5]       YOLO11n            11.50                                 49.4±0.2 25.60±0.4  16.70±0.3   12.20±0.6   17.60±0.7 51.82±0.5 38.96±0.3 45.39±0.4
+ DuET (Ours)     YOLO11n            11.02                                 49.4±0.2 43.30±0.1   2.67±0.3   14.00±0.2    8.93±0.1  87.65±0.2 34.18±0.1 60.92±0.2
+
+
+
+References                                                                         [9] Naoto Inoue, Ryosuke Furuta, Toshihiko Yamasaki, and Kiy-
+                                                                                       oharu Aizawa. Cross-domain weakly-supervised object de-
+ [1] Li Chen, Chunyan Yu, and Lvcai Chen. A new knowledge                              tection through progressive domain adaptation. In Proceed-
+     distillation for incremental object detection. In 2019 Interna-                   ings of the IEEE conference on computer vision and pattern
+     tional Joint Conference on Neural Networks (IJCNN), pages                         recognition, pages 5001–5009, 2018. 6
+     1–7. IEEE, 2019. 1
+                                                                                  [10] Glenn Jocher and Jing Qiu. Ultralytics yolo11, 2024. 2, 3,
+ [2] Marius Cordts, Mohamed Omran, Sebastian Ramos, Timo                               5, 9
+     Rehfeld, Markus Enzweiler, Rodrigo Benenson, Uwe                             [11] Madhu Kiran, Marco Pedersoli, Jose Dolz, Louis-Antoine
+     Franke, Stefan Roth, and Bernt Schiele. The cityscapes                            Blais-Morin, Eric Granger, et al. Incremental multi-target
+     dataset for semantic urban scene understanding. In Proceed-                       domain adaptation for object detection with efficient domain
+     ings of the IEEE conference on computer vision and pattern                        transfer. Pattern Recognition, 129:108771, 2022. 6
+     recognition, pages 3213–3223, 2016. 6
+                                                                                  [12] Yanghao Li, Hanzi Mao, Ross Girshick, and Kaiming He.
+ [3] Muhammad Sohail Danish, Muhammad Haris Khan,                                      Exploring plain vision transformer backbones for object de-
+     Muhammad Akhtar Munir, M Saquib Sarfraz, and Mohsen                               tection. In European conference on computer vision, pages
+     Ali. Improving single domain-generalized object detection:                        280–296. Springer, 2022. 5, 9
+     A focus on diversification and alignment. In Proceedings of                  [13] Zhizhong Li and Derek Hoiem. Learning without forgetting.
+     the IEEE/CVF Conference on Computer Vision and Pattern                            IEEE transactions on pattern analysis and machine intelli-
+     Recognition, pages 17732–17742, 2024. 6                                           gence, 40(12):2935–2947, 2017. 2, 7, 8, 9, 10, 11
+ [4] Mark Everingham, Luc Van Gool, Christopher KI Williams,                      [14] Xialei Liu, Hao Yang, Avinash Ravichandran, Rahul
+     John Winn, and Andrew Zisserman. The pascal visual object                         Bhotika, and Stefano Soatto. Multi-task incremental learn-
+     classes (voc) challenge. International journal of computer                        ing for object detection. arXiv preprint arXiv:2002.05347,
+     vision, 88:303–338, 2010. 6                                                       2020. 6
+ [5] Tao Feng, Mang Wang, and Hangjie Yuan. Overcoming                            [15] Yuyang Liu, Yang Cong, Dipam Goswami, Xialei Liu, and
+     catastrophic forgetting in incremental object detection via                       Joost van de Weijer. Augmented box replay: Overcom-
+     elastic response distillation. In Proceedings of the IEEE/CVF                     ing foreground shift for incremental object detection. In
+     conference on computer vision and pattern recognition,                            Proceedings of the IEEE/CVF International Conference on
+     pages 9427–9436, 2022. 7, 8, 9, 10, 11                                            Computer Vision (ICCV), pages 11367–11377, 2023. 6
+ [6] Mahmoud Hassaballah, Mourad A Kenk, Khan Muhammad,                           [16] Yaoyao Liu, Bernt Schiele, Andrea Vedaldi, and Christian
+     and Shervin Minaee. Vehicle detection and tracking in ad-                         Rupprecht. Continual detection transformer for incremen-
+     verse weather using a deep learning framework. IEEE trans-                        tal object detection. In Proceedings of the IEEE/CVF Con-
+     actions on intelligent transportation systems, 22(7):4230–                        ference on Computer Vision and Pattern Recognition, pages
+     4242, 2020. 6                                                                     23799–23808, 2023. 5, 7, 8, 9, 10, 11
+ [7] Chenyu Huang, Peng Ye, Tao Chen, Tong He, Xi-                                [17] Ilya Loshchilov, Frank Hutter, et al. Fixing weight decay
+     angyu Yue, and Wanli Ouyang. Emr-merging: Tuning-                                 regularization in adam. arXiv preprint arXiv:1711.05101, 5:
+     free high-performance model merging. arXiv preprint                               5, 2017. 5
+     arXiv:2405.17461, 2024. 3, 5                                                 [18] Wenyu Lv, Shangliang Xu, Yian Zhao, Guanzhong Wang,
+ [8] Gabriel Ilharco, Marco Tulio Ribeiro, Mitchell Wortsman,                          Jinman Wei, Cheng Cui, Yuning Du, Qingqing Dang, and Yi
+     Suchin Gururangan, Ludwig Schmidt, Hannaneh Hajishirzi,                           Liu. Detrs beat yolos on real-time object detection, 2023. 2,
+     and Ali Farhadi. Editing models with task arithmetic. arXiv                       3, 5
+     preprint arXiv:2212.04089, 2022. 3, 5                                        [19] Daniel Marczak, Bartłomiej Twardowski, Tomasz Trzciński,
+     and Sebastian Cygert. Magmax: Leveraging model merging
+     for seamless continual learning. In European Conference on
+     Computer Vision, pages 379–395. Springer, 2025. 3, 5
+[20] Michael S Matena and Colin A Raffel. Merging models with
+     fisher-weighted averaging. Advances in Neural Information
+     Processing Systems, 35:17703–17716, 2022. 3, 5
+[21] Angelo G Menezes, Gustavo de Moura, Cézanne Alves, and
+     André CPLF de Carvalho. Continual object detection: a re-
+     view of definitions, strategies, and challenges. Neural net-
+     works, 161:476–493, 2023. 1, 6
+[22] Xiang Song, Yuhang He, Songlin Dong, and Yihong
+     Gong. Non-exemplar domain incremental object detection
+     via learning domain bias. In Proceedings of the AAAI Con-
+     ference on Artificial Intelligence, pages 15056–15065, 2024.
+     5, 6, 7, 8, 9, 10, 11
+[23] Aming Wu and Cheng Deng. Single-domain generalized ob-
+     ject detection in urban scene via cyclic-disentangled self-
+     distillation. In Proceedings of the IEEE/CVF Conference
+     on computer vision and pattern recognition, pages 847–856,
+     2022. 6
+[24] Dongbao Yang, Yu Zhou, Aoting Zhang, Xurui Sun, Dayan
+     Wu, Weiping Wang, and Qixiang Ye. Multi-view correlation
+     distillation for incremental object detection. Pattern Recog-
+     nition, 131:108863, 2022. 1
+[25] Fisher Yu, Haofeng Chen, Xin Wang, Wenqi Xian, Yingying
+     Chen, Fangchen Liu, Vashisht Madhavan, and Trevor Dar-
+     rell. Bdd100k: A diverse driving dataset for heterogeneous
+     multitask learning. In Proceedings of the IEEE/CVF con-
+     ference on computer vision and pattern recognition, pages
+     2636–2645, 2020. 6
+[26] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang
+     Wang, and Jifeng Dai. Deformable detr: Deformable trans-
+     formers for end-to-end object detection. arXiv preprint
+     arXiv:2010.04159, 2020. 5, 9
+

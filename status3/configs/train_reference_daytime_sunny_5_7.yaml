@@ -18,7 +18,7 @@ detector:
     6: class_7
 
 training:
-  epochs: 100
+  epochs: 1
   warmup_epochs: 5
   imgsz: 640
   batch: 64

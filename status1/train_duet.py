@@ -43,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from duet_repro.core.duet_module import merge_state_dicts_with_duet_module
+from duet_repro.core.incremental_head import inject_incremental_head_checkpoint
 from duet_repro.core.task_vectors import (
     StateDict,
     inject_state_dict_into_checkpoint,
@@ -651,6 +652,7 @@ def train_one_task(
     prev_task_vector: StateDict | None,
     task_vector_history: list[StateDict],
     reference_state: StateDict,
+    old_class_indices: Iterable[int] | None = None,
 ) -> Path:
     """
     训练单个阶段。
@@ -683,6 +685,17 @@ def train_one_task(
     distill_weight = float(duet_cfg.get("distill_weight", 0.0))
     dc_weight = float(duet_cfg.get("dc_weight", 0.0))
 
+    if dc_weight > 0 and reference_state is not None:
+        from ultralytics.models.yolo.detect.train import DetectionTrainer
+
+        # Debug T2 entrypoints call train_one_task() directly, so install the
+        # same dynamic task-vector refresh here as the full training main().
+        DuETDetectionTrainer(
+            base_trainer_cls=DetectionTrainer,
+            reference_state=reference_state,
+            shared_key_exclude=tuple(duet_cfg.get("shared_key_exclude", [])),
+        )
+
     if teacher_ckpt is not None and (distill_weight > 0 or dc_weight > 0):
         # teacher 是上一轮 merged checkpoint，用于旧知识蒸馏。
         teacher = YOLO(str(teacher_ckpt)).model
@@ -693,6 +706,7 @@ def train_one_task(
             distill_weight=distill_weight,
             dc_weight=dc_weight,
             distill_temperature=float(duet_cfg.get("distill_temperature", 2.0)),
+            old_class_indices=list(old_class_indices) if old_class_indices is not None else None,
         )
         if prev_task_vector is not None:
             # prev_task_vector 用作方向一致性损失的当前历史方向。
@@ -762,11 +776,11 @@ def merge_full_head_slices(
     current_indices: Iterable[int],
 ) -> StateDict:
     """
-    在全量 20 类检测头里保留各任务学到的分类头切片。
+    在全量 20 类检测头里保留各任务学到的分类输出通道切片。
 
-    merge_state_dicts_with_duet_module 会对共享参数做动态融合；检测头属于任务特定参数，
-    对 train_new1.py 这种“全量头 + 任务类别切片”的训练方式，不能简单整层采用新任务头，
-    否则旧任务类别通道会被新阶段训练覆盖。
+    YOLO11 的 cv3.*.2 是类别专属输出层，等价于论文 Incremental Head
+    中需要按任务拼接/保留的 task-specific classification head。其余 head
+    中间层可以随 shared_key_exclude 配置参与 DuET 融合，避免整头被 T2 覆盖。
 
     learned_indices: 之前任务已经学过的全局类别下标。
     current_indices: 当前任务正在学习的全局类别下标。
@@ -963,6 +977,7 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
             prev_task_vector=prev_tv,
             task_vector_history=task_vector_history,
             reference_state=reference_state,
+            old_class_indices=learned_indices,
         )
 
         if task_index == 1 or not duet_cfg.get("enabled", True):
@@ -972,7 +987,7 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
             merged_ckpt = output_dir / f"task_{task_index}_{task['name']}_best.pt"
         else:
             # 增量阶段：共享层走 DuET Module 动态融合。
-            print(f"【阶段 T{task_index}】进入 DuET 融合：共享层动态融合 + 检测头通道切片保留。")
+            print(f"【阶段 T{task_index}】进入 DuET 融合：共享 backbone/neck 动态融合 + Detect head 按任务拼接。")
             old_state = load_state_dict(old_ckpt)
             new_state = load_state_dict(trained_ckpt)
             merged_state, report = merge_state_dicts_with_duet_module(
@@ -984,14 +999,6 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
                 shared_key_exclude=shared_key_exclude,
                 per_layer_report=duet_cfg.get("verbose_merge", False),
             )
-            # 检测头分类输出层按全局类别通道切片，保留旧类并写入新类。
-            merged_state = merge_full_head_slices(
-                merged_state,
-                old_state,
-                new_state,
-                learned_indices=learned_indices,
-                current_indices=current_indices,
-            )
             print(
                 "[DuET train_new1] merged_keys={0} skipped_keys={1}".format(
                     report["merged_keys"],
@@ -1000,7 +1007,19 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
             )
             merged_ckpt = output_dir / f"task_{task_index}_{task['name']}_duet.pt"
 
-        inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
+        if task_index == 1 or not duet_cfg.get("enabled", True):
+            inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
+        else:
+            inject_incremental_head_checkpoint(
+                template_checkpoint_path=trained_ckpt,
+                merged_shared_state=merged_state,
+                old_checkpoint_path=old_ckpt,
+                new_checkpoint_path=trained_ckpt,
+                output_path=merged_ckpt,
+                old_class_indices=learned_indices,
+                new_class_indices=current_indices,
+                total_classes=int(cfg["detector"]["total_classes"]),
+            )
 
         # 记录已经学习过的全局类别通道，供下一轮 head slice 合并使用。
         learned_indices = sorted(set(learned_indices) | set(current_indices))
