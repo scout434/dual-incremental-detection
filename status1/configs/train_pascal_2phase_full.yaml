@@ -64,10 +64,15 @@ duet:
   dc_weight: 0.01
   distill_temperature: 2.0
   # Paper-faithful split for YOLO11n: backbone/neck are shared parameters.
-  # The final cv3 class-output rows are kept per task inside one fixed 20-class
-  # Detect head, preserving the paper's reported YOLO11n complexity.
+  # Each task trains its own Detect head. Old/current heads are concatenated
+  # only after the current task finishes, following Algorithm 1.
   shared_key_exclude:
     - model.23
+  # Sequential fine-tuning: initialize the complete compatible T2 model from
+  # T1, including the Detect head. Physical old/current head concatenation is
+  # performed only after the current task finishes.
+  local_head_init_exclude: []
+  require_full_head_init: true
   verbose_merge: false
 
 tasks:

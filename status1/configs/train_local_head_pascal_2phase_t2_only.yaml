@@ -1,6 +1,8 @@
+# Resume the status1 local-head experiment from the finished T1 checkpoint and
+# train only T2: Clipart classes 11-20.
 experiment:
-  name: status1_pascal_2phase_local_head_duet_yolo11n
-  output_dir: outputs/status1_pascal_2phase_local_head_duet_yolo11n
+  name: status1_pascal_2phase_local_head_duet_yolo11n_t2_only
+  output_dir: outputs/status1_pascal_2phase_local_head_duet_yolo11n_t2_only
   seed: 42
 
 detector:
@@ -49,19 +51,22 @@ duet:
   use_duet_module: true
   gamma: 0.1
   alpha_base: 0.5
-  # Paper loss for incremental tasks: Ldet + lambda_distill * L*_Distill + lambda_dc * LDC.
   distill_weight: 0.01
   dc_weight: 0.01
   distill_temperature: 2.0
-  # Local-head mode treats the whole Detect head as task-specific. LDC and
-  # DuET shared-parameter arithmetic should only act on backbone/neck.
   shared_key_exclude:
     - model.23
   # Sequential fine-tuning initializes the complete compatible T2 model from
-  # T1. Concatenation still happens only after current training.
+  # T1. The old head is concatenated only after T2 training.
   local_head_init_exclude: []
   require_full_head_init: true
   verbose_merge: false
+
+resume:
+  start_task: 2
+  previous_checkpoint: outputs/status1_pascal_2phase_local_head_duet_yolo11n/task_1_voc_1_10_local_best.pt
+  previous_history: outputs/status1_pascal_2phase_local_head_duet_yolo11n/training_history.json
+  learned_order: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 tasks:
   - name: voc_1_10
@@ -74,9 +79,6 @@ tasks:
     class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     labels_are_global: false
 
-# Extra slices needed by the paper's GI protocol. These are not trained on by
-# the main run; after T2, the script remaps their labels to the final cumulative
-# output order [VOC 1:10, Clipart 11:20] for correct final-checkpoint evaluation.
 eval_slices:
   - name: voc_1_10_for_final_eval
     data: data/pascal_voc_yolo/voc_1_10/data.yaml

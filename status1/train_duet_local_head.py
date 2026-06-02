@@ -10,16 +10,19 @@ This entry point instead trains each task with only its local classes:
   T2: nc = len(C2)
   ...
 
-After each incremental task, shared parameters are merged with DuET task
-arithmetic and YOLO classification output rows are physically concatenated into
-a cumulative Detect head. This prevents new-task BCE negatives from updating
-old task classification rows during training.
+For each incremental task, the trainable local model is initialized from the
+previous task model wherever tensor shapes are compatible, following
+theta_t <- theta_{t-1}. After training, shared parameters are merged with DuET
+task arithmetic and complete old/current Detect heads are kept side by side for
+inference. The row-concatenated checkpoint is only an Ultralytics-compatible
+template used while constructing that physical multi-head checkpoint.
 """
 
 import argparse
 import atexit
 from datetime import datetime
 import json
+import logging
 import multiprocessing
 import os
 from pathlib import Path
@@ -40,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from duet_repro.core.duet_loss import create_duet_criterion
+from duet_repro.core.incremental_head import inject_incremental_head_checkpoint
 from duet_repro.core.duet_module import merge_state_dicts_with_duet_module
 from duet_repro.core.task_vectors import StateDict, load_state_dict, task_vector
 from train_duet import (
@@ -74,8 +78,14 @@ def setup_console_txt_log(output_dir: Path) -> Path:
     original_stderr = sys.stderr
     sys.stdout = TeeStream(original_stdout, log_file)
     sys.stderr = TeeStream(original_stderr, log_file)
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+    ultralytics_logger = logging.getLogger("ultralytics")
+    ultralytics_logger.addHandler(file_handler)
 
     def close_log_file() -> None:
+        ultralytics_logger.removeHandler(file_handler)
+        file_handler.close()
         sys.stdout = original_stdout
         sys.stderr = original_stderr
         log_file.flush()
@@ -455,6 +465,9 @@ def make_task_init_checkpoint(
     model = YOLO(str(base_ckpt))
     model_state = model.model.state_dict()
     loaded = 0
+    inherited_head_tensors = 0
+    head_patterns = default_detect_head_patterns(model_state)
+    head_tensor_count = sum(_key_matches_any(key, head_patterns) for key in model_state)
     for key, value in model_state.items():
         source_value = previous_shared_state.get(key)
         if source_value is None:
@@ -465,12 +478,24 @@ def make_task_init_checkpoint(
             continue
         model_state[key] = source_value.detach().clone().to(dtype=value.dtype)
         loaded += 1
+        if _key_matches_any(key, head_patterns):
+            inherited_head_tensors += 1
     model.model.load_state_dict(model_state, strict=False)
+
+    if cfg.get("duet", {}).get("require_full_head_init", False) and inherited_head_tensors != head_tensor_count:
+        raise ValueError(
+            f"{task['name']}: expected to inherit the complete Detect head, "
+            f"but loaded {inherited_head_tensors}/{head_tensor_count} tensors. "
+            "Check task-local class counts and local_head_init_exclude."
+        )
 
     init_path = output_dir / "task_initializers" / f"{safe_task_name(task['name'])}_init.pt"
     init_path.parent.mkdir(parents=True, exist_ok=True)
     model.save(init_path)
-    print(f"[init] {task['name']}: loaded {loaded} shared tensors from previous merged model")
+    print(
+        f"[init] {task['name']}: inherited {loaded} compatible tensors from previous task model "
+        f"(Detect head {inherited_head_tensors}/{head_tensor_count})"
+    )
     return init_path
 
 
@@ -484,6 +509,7 @@ def train_one_local_task(
     reference_state: StateDict,
     task_vector_history: list[StateDict],
     shared_key_exclude: Iterable[str],
+    teacher_ckpt: str | Path | None = None,
 ) -> Path:
     from ultralytics import YOLO
 
@@ -491,19 +517,22 @@ def train_one_local_task(
     training = cfg["training"]
     duet_cfg = cfg.get("duet", {})
     dc_weight = float(duet_cfg.get("dc_weight", 0.0)) if not is_first else 0.0
-    requested_distill = float(duet_cfg.get("distill_weight", 0.0)) if not is_first else 0.0
-    if requested_distill > 0:
-        print(
-            "[loss] local-head mode disables class/logit distillation by default because "
-            "current-task local classes are semantically different from old-task local classes."
-        )
+    distill_weight = float(duet_cfg.get("distill_weight", 0.0)) if not is_first else 0.0
+    teacher_model = None
+    if distill_weight > 0 and teacher_ckpt is not None:
+        teacher_model = YOLO(str(teacher_ckpt)).model
+        teacher_model.eval()
+        print(f"[loss] distillation teacher: {teacher_ckpt}")
 
-    if dc_weight > 0 and task_vector_history:
+    if (distill_weight > 0 and teacher_model is not None) or (dc_weight > 0 and task_vector_history):
         criterion = create_duet_criterion(
             model=model.model,
-            teacher_model=None,
-            distill_weight=0.0,
+            teacher_model=teacher_model,
+            distill_weight=distill_weight if teacher_model is not None else 0.0,
             dc_weight=dc_weight,
+            distill_temperature=float(duet_cfg.get("distill_temperature", 2.0)),
+            distill_cls_quantile=float(duet_cfg.get("distill_cls_quantile", 0.75)),
+            distill_bbox_quantile=float(duet_cfg.get("distill_bbox_quantile", 0.75)),
             reference_state=reference_state,
             shared_key_exclude=shared_key_exclude,
         )
@@ -514,12 +543,18 @@ def train_one_local_task(
             from ultralytics.utils.torch_utils import unwrap_model
 
             original_model = unwrap_model(trainer.model)
+            criterion.model = original_model
             if hasattr(original_model, "args"):
                 criterion.hyp = original_model.args
             original_model.criterion = criterion
             if trainer.ema and hasattr(trainer.ema, "ema"):
                 unwrap_model(trainer.ema.ema).criterion = criterion
-            trainer.loss_names = list(trainer.loss_names) + ["dc_loss"]
+            loss_names = list(trainer.loss_names)
+            if distill_weight > 0 and teacher_model is not None:
+                loss_names.append("distill_loss")
+            if dc_weight > 0 and task_vector_history:
+                loss_names.append("dc_loss")
+            trainer.loss_names = loss_names
 
         model.add_callback("on_train_start", on_train_start)
 
@@ -608,6 +643,31 @@ def save_cumulative_checkpoint(
     return model.model.state_dict()
 
 
+def save_parallel_head_checkpoint(
+    *,
+    template_checkpoint_path: str | Path,
+    merged_shared_state: StateDict,
+    old_checkpoint_path: str | Path,
+    new_checkpoint_path: str | Path,
+    output_path: Path,
+    old_class_indices: Iterable[int],
+    new_class_indices: Iterable[int],
+    total_classes: int,
+) -> Path:
+    inject_incremental_head_checkpoint(
+        template_checkpoint_path=template_checkpoint_path,
+        merged_shared_state=merged_shared_state,
+        old_checkpoint_path=old_checkpoint_path,
+        new_checkpoint_path=new_checkpoint_path,
+        output_path=output_path,
+        old_class_indices=old_class_indices,
+        new_class_indices=new_class_indices,
+        total_classes=total_classes,
+    )
+    print(f"[parallel-head] saved full old/new Detect heads: {output_path}")
+    return output_path
+
+
 def write_experiment_state(
     output_dir: Path,
     cfg: dict[str, Any],
@@ -651,19 +711,61 @@ def resolve_config_path(config_path: str | Path) -> Path:
     return (SCRIPT_DIR / path).resolve()
 
 
-def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> None:
+def resolve_project_path(path: str | Path) -> Path:
+    path = Path(path)
+    if path.is_absolute():
+        return path
+    for base in (Path.cwd(), PROJECT_ROOT):
+        candidate = base / path
+        if candidate.exists():
+            return candidate.resolve()
+    return (PROJECT_ROOT / path).resolve()
+
+
+def infer_learned_order(tasks: list[dict[str, Any]], cfg: dict[str, Any], end_task_index: int) -> list[int]:
+    learned: list[int] = []
+    for task in tasks[:end_task_index]:
+        data_path = Path(task["data"])
+        if not data_path.is_absolute():
+            data_path = PROJECT_ROOT / data_path
+        data_cfg = load_config(data_path)
+        learned.extend(resolve_task_class_indices(task, data_cfg, cfg))
+    return learned
+
+
+def main(
+    config_path: str = "configs/train_local_head_pascal_2phase.yaml",
+    *,
+    start_task_override: int | None = None,
+    previous_checkpoint_override: str | Path | None = None,
+    output_dir_override: str | Path | None = None,
+    training_overrides: dict[str, Any] | None = None,
+    duet_overrides: dict[str, Any] | None = None,
+) -> None:
     multiprocessing.freeze_support()
     config_path = resolve_config_path(config_path)
     os.chdir(PROJECT_ROOT)
 
     cfg = load_config(config_path)
+    if output_dir_override is not None:
+        cfg["experiment"]["output_dir"] = str(output_dir_override)
+    if training_overrides:
+        cfg.setdefault("training", {}).update(training_overrides)
+    if duet_overrides:
+        cfg.setdefault("duet", {}).update(duet_overrides)
+    if start_task_override is not None or previous_checkpoint_override is not None:
+        resume_cfg = cfg.setdefault("resume", {})
+        if start_task_override is not None:
+            resume_cfg["start_task"] = int(start_task_override)
+        if previous_checkpoint_override is not None:
+            resume_cfg["previous_checkpoint"] = str(previous_checkpoint_override)
     seed_everything(int(cfg["experiment"].get("seed", 42)))
     output_dir = Path(cfg["experiment"]["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
     setup_console_txt_log(output_dir)
 
     print("=" * 72)
-    print("[local-head DuET] task-local training + physical class-row concat")
+    print("[local-head DuET] sequential local-head training + physical Detect-head concat")
     for idx, task in enumerate(cfg["tasks"], start=1):
         print(f"T{idx}: {task['name']} | classes={task['class_indices']} | data={task['data']}")
     print("=" * 72)
@@ -680,7 +782,7 @@ def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> No
 
     duet_cfg = cfg.get("duet", {})
     merge_exclude = tuple(duet_cfg.get("shared_key_exclude") or default_class_output_exclude(reference_state))
-    init_exclude = tuple(duet_cfg.get("local_head_init_exclude") or default_detect_head_patterns(reference_state))
+    init_exclude = tuple(duet_cfg.get("local_head_init_exclude", ()))
     print(f"[config] merge shared_key_exclude={merge_exclude}")
     print(f"[config] local_head_init_exclude={init_exclude}")
 
@@ -692,9 +794,55 @@ def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> No
     old_nc = 0
     latest_ckpt: Path | None = None
 
+    resume_cfg = cfg.get("resume", {}) or {}
+    start_task = int(resume_cfg.get("start_task", 1))
+    if start_task < 1 or start_task > len(cfg["tasks"]):
+        raise ValueError(f"resume.start_task must be between 1 and {len(cfg['tasks'])}, got {start_task}")
+
+    if start_task > 1:
+        history_path = resolve_project_path(resume_cfg.get("previous_history", output_dir / "training_history.json"))
+        prior_history: list[dict[str, Any]] = []
+        if history_path.exists():
+            prior_history = json.loads(history_path.read_text(encoding="utf-8"))
+            history = [entry for entry in prior_history if int(entry.get("task_index", 0)) < start_task]
+
+        previous_checkpoint = resume_cfg.get("previous_checkpoint")
+        if not previous_checkpoint:
+            previous_entry = next(
+                (entry for entry in reversed(prior_history) if int(entry.get("task_index", 0)) == start_task - 1),
+                None,
+            )
+            if previous_entry:
+                previous_checkpoint = previous_entry.get("merged_checkpoint")
+        if not previous_checkpoint:
+            raise ValueError(
+                "resume.previous_checkpoint is required when start_task > 1 "
+                "unless previous_history contains the previous task."
+            )
+
+        old_ckpt = resolve_project_path(previous_checkpoint)
+        if not old_ckpt.exists():
+            raise FileNotFoundError(f"resume previous checkpoint does not exist: {old_ckpt}")
+
+        learned_order = [int(i) for i in resume_cfg.get("learned_order", [])]
+        if not learned_order and history:
+            learned_order = [int(i) for i in history[-1].get("learned_output_order", [])]
+        if not learned_order:
+            learned_order = infer_learned_order(cfg["tasks"], cfg, start_task - 1)
+
+        previous_shared_state = load_state_dict(old_ckpt)
+        old_nc = len(learned_order)
+        latest_ckpt = old_ckpt
+        task_vector_history.append(task_vector(reference_state, previous_shared_state, shared_key_exclude=merge_exclude))
+        print(f"[resume] start from T{start_task}; previous checkpoint={old_ckpt}")
+        print(f"[resume] learned output order={learned_order}")
+
     write_experiment_state(output_dir, cfg, history, reference_ckpt=reference_ckpt, latest_ckpt=latest_ckpt)
 
     for task_index, task in enumerate(cfg["tasks"], start=1):
+        if task_index < start_task:
+            print(f"[resume] skip T{task_index}: {task['name']}")
+            continue
         prepare_task_local_data(task, cfg, output_dir)
         current_indices = [int(i) for i in task["resolved_class_indices"]]
         current_names = {idx: global_names[global_idx] for idx, global_idx in enumerate(current_indices)}
@@ -721,6 +869,7 @@ def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> No
             reference_state=reference_state,
             task_vector_history=task_vector_history,
             shared_key_exclude=merge_exclude,
+            teacher_ckpt=old_ckpt if task_index > 1 else None,
         )
 
         new_state = load_state_dict(trained_ckpt)
@@ -744,6 +893,7 @@ def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> No
         else:
             assert previous_shared_state is not None and old_ckpt is not None
             old_state = load_state_dict(old_ckpt)
+            previous_learned_order = learned_order[:old_nc]
             merged_state, report = merge_state_dicts_with_duet_module(
                 reference_state,
                 old_state,
@@ -754,10 +904,10 @@ def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> No
                 per_layer_report=duet_cfg.get("verbose_merge", False),
             )
             print(f"[DuET] merged shared tensors={report['merged_keys']}, skipped={report['skipped_keys']}")
-            merged_ckpt = output_dir / f"task_{task_index}_{task['name']}_duet_local_concat.pt"
+            row_concat_ckpt = output_dir / f"task_{task_index}_{task['name']}_duet_local_rowcat.pt"
             final_state = save_cumulative_checkpoint(
                 cfg,
-                merged_ckpt,
+                row_concat_ckpt,
                 cumulative_names=cumulative_names,
                 merged_state=merged_state,
                 old_state=old_state,
@@ -765,6 +915,19 @@ def main(config_path: str = "configs/train_local_head_pascal_2phase.yaml") -> No
                 old_nc=old_nc,
                 new_nc=len(current_indices),
             )
+            parallel_ckpt = output_dir / f"task_{task_index}_{task['name']}_duet_parallel_heads.pt"
+            save_parallel_head_checkpoint(
+                template_checkpoint_path=row_concat_ckpt,
+                merged_shared_state=final_state,
+                old_checkpoint_path=old_ckpt,
+                new_checkpoint_path=trained_ckpt,
+                output_path=parallel_ckpt,
+                old_class_indices=previous_learned_order,
+                new_class_indices=current_indices,
+                total_classes=int(cfg["detector"]["total_classes"]),
+            )
+            merged_ckpt = parallel_ckpt
+            final_state = load_state_dict(merged_ckpt)
 
         current_tv = task_vector(reference_state, final_state, shared_key_exclude=merge_exclude)
         task_vector_history.append(current_tv)

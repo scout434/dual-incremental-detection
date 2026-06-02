@@ -155,7 +155,7 @@ class DuETDetectionLoss(v8DetectionLoss):
     @staticmethod
     def _scores_to_anchor_last(scores: torch.Tensor, nc: int) -> torch.Tensor:
         """Return class logits as [batch, anchors, classes]."""
-        if scores.ndim == 3 and scores.shape[1] == nc:
+        if scores.ndim == 3 and (scores.shape[1] == nc or scores.shape[1] < scores.shape[2]):
             return scores.permute(0, 2, 1).contiguous()
         return scores.contiguous()
 
@@ -181,15 +181,16 @@ class DuETDetectionLoss(v8DetectionLoss):
         if self.teacher is None or self._teacher_dtype_synced:
             return
         student_dtype = preds["boxes"].dtype
+        student_device = preds["boxes"].device
         first_param = next(self.teacher.parameters(), None)
-        if first_param is None or first_param.dtype == student_dtype:
+        if first_param is None:
             self._teacher_dtype_synced = True
             return
-        for module in self.teacher.modules():
-            try:
-                module.half()
-            except (TypeError, AttributeError):
-                pass
+        if first_param.dtype == student_dtype and first_param.device == student_device:
+            self._teacher_dtype_synced = True
+            return
+        self.teacher.to(device=student_device, dtype=student_dtype)
+        self.teacher.eval()
         self._teacher_dtype_synced = True
 
     def loss(
@@ -224,24 +225,27 @@ class DuETDetectionLoss(v8DetectionLoss):
         # Step 1: 计算标准检测损失（box + cls + dfl）
         batch_size = preds["boxes"].shape[0]
         detection_loss, loss_detach = super().loss(preds, batch)
-        total_loss = detection_loss.clone()
+        # v8DetectionLoss.loss() already returns a batch-scaled loss. Keep the
+        # auxiliary terms on the same scale and do not multiply the detector
+        # loss by batch_size a second time.
+        total_loss = detection_loss.sum()
         loss_items = loss_detach.clone()
 
         # Step 2: 计算蒸馏损失（附录 B Eq 11-16）
         distill_loss = torch.tensor(0.0, device=detection_loss.device)
         if self.teacher is not None and self.distill_weight > 0:
             distill_loss = self._compute_distillation_loss(preds, batch)
-            total_loss = total_loss + self.distill_weight * distill_loss
+            total_loss = total_loss + self.distill_weight * distill_loss * batch_size
             loss_items = torch.cat([loss_items, distill_loss.detach().unsqueeze(0)])
 
         # Step 3: 计算方向一致性损失（如果有历史任务向量）
         dc_loss = torch.tensor(0.0, device=detection_loss.device)
         if (self.curr_task_vector is not None or self.reference_state is not None) and len(self.task_vector_history) >= 1:
             dc_loss = self._compute_directional_consistency_loss().to(self.device)
-            total_loss = total_loss + self.dc_weight * dc_loss
+            total_loss = total_loss + self.dc_weight * dc_loss * batch_size
             loss_items = torch.cat([loss_items, dc_loss.detach().unsqueeze(0)])
 
-        return total_loss * batch_size, loss_items
+        return total_loss, loss_items
 
     def _compute_distillation_loss(
             self,
@@ -349,19 +353,15 @@ class DuETDetectionLoss(v8DetectionLoss):
         teacher_cls_flat = teacher_cls_raw.reshape(batch_size * total_anchors, -1).float()
         student_cls_flat = student_cls_raw.reshape(batch_size * total_anchors, -1).float()
 
-        # 动态掩码：仅保留教师模型中高置信度的样本
-        teacher_conf = teacher_cls_flat.softmax(dim=1).amax(dim=1)   # (batch*anchors,)
+        # 动态掩码：仅保留教师模型中高置信度的样本，论文使用原始 logits 的 max(c_old)。
+        teacher_conf = teacher_cls_flat.amax(dim=1)   # (batch*anchors,)
         cls_threshold = torch.quantile(teacher_conf, self.distill_cls_quantile)
         cls_mask = teacher_conf >= cls_threshold                          # (batch*anchors,)
 
         cls_loss = torch.tensor(0.0, device=device)
         if cls_mask.any():
-            # MSE: ||c_curr - c_old||²
-            cls_loss = F.mse_loss(
-                student_cls_flat[cls_mask],
-                teacher_cls_flat[cls_mask].detach(),
-                reduction="mean",
-            )
+            cls_diff = student_cls_flat[cls_mask] - teacher_cls_flat[cls_mask].detach()
+            cls_loss = cls_diff.pow(2).sum(dim=1).mean()
 
         # ===== 边界框蒸馏 (Eq 14-15) =====
         # 动态掩码：仅保留教师模型中低方差的 bbox 预测
@@ -372,13 +372,10 @@ class DuETDetectionLoss(v8DetectionLoss):
         bbox_loss = torch.tensor(0.0, device=device)
         if bbox_mask.any():
             # KL 散度: DKL(Softmax(b_curr) ‖ Softmax(b_old))
-            b_curr_prob = F.log_softmax(student_bbox_flat[bbox_mask], dim=1)
-            b_old_prob = F.softmax(teacher_bbox_flat[bbox_mask].detach(), dim=1)
-            bbox_loss = F.kl_div(
-                b_curr_prob,
-                b_old_prob,
-                reduction="batchmean",
-            )
+            b_curr_log = F.log_softmax(student_bbox_flat[bbox_mask], dim=1)
+            b_curr_prob = b_curr_log.exp()
+            b_old_log = F.log_softmax(teacher_bbox_flat[bbox_mask].detach(), dim=1)
+            bbox_loss = (b_curr_prob * (b_curr_log - b_old_log)).sum(dim=1).mean()
 
         total_distill = cls_loss + bbox_loss
 
@@ -443,23 +440,18 @@ class DuETDetectionLoss(v8DetectionLoss):
             if update_curr.shape != update_prev.shape:
                 continue
 
-            # 计算点积并惩罚负值（方向冲突）
+            # Eq. 16: penalize negative dot products between consecutive
+            # shared-parameter updates. Cosine similarity is a different loss.
             update_curr_flat = update_curr.flatten()
             update_prev_flat = update_prev.flatten()
 
             dot_product = torch.dot(update_curr_flat, update_prev_flat)
-
-            # 代码中没有这一步
-            denom = update_curr_flat.norm() * update_prev_flat.norm() + 1e-8
-            cos = dot_product / denom
-
-            # ReLU(-cos)：当 cos < 0（方向冲突）时惩罚
-            losses.append(F.relu(-cos))
+            losses.append(F.relu(-dot_product))
 
         if not losses:
             return torch.tensor(0.0, device=self.device)
 
-        return torch.stack(losses).mean()
+        return torch.stack(losses).sum()
 
     def record_task_vector(self, task_vector: dict) -> None:
         """

@@ -5,15 +5,15 @@ from __future__ import annotations
 接入当前项目的 DuET 复现逻辑。
 
 这个脚本和原 train_ultralytics_duet.py 的区别：
-1. 训练前始终构建一个“全量 20 类检测头”的 YOLO 模型。
-2. 第一阶段只从 yolo11n.pt 加载 backbone/neck，检测头保持 20 类结构。
-3. 后续阶段沿用上一轮 DuET 合并后的 checkpoint 继续训练。
+1. 每个阶段构建当前累计类别的 Detect head：T1 为 10 类，T2 再扩展为 20 类。
+2. 第一阶段从 yolo11n.pt 初始化；未来类别不会提前参与 T1 检测损失。
+3. 后续阶段沿用上一轮 DuET 合并后的 checkpoint，扩展 head 后继续训练。
 4. 增量阶段训练时接入 duet_loss.py 中的蒸馏损失和方向一致性损失。
 5. 每轮训练结束后用 duet_module.py 做共享参数动态融合，并按 class_indices
-   把旧任务/新任务的分类头切片写回全量 20 类检测头。
+   把旧任务/新任务的分类输出行写回累计 Detect head。
 
 适用场景：
-你的数据 yaml 可能每个任务只含一部分类别，但最终希望模型一直保持 20 类输出。
+你的数据 yaml 可能每个任务只含一部分类别，最终模型会逐步扩展到 20 类输出。
 """
 
 import argparse
@@ -69,7 +69,7 @@ class TeeStream:
         """终端完整显示，日志文件过滤动态进度条。"""
         self.console_stream.write(text)
         for piece in text.splitlines(True):
-            if not self._is_dynamic_progress(piece):
+            if not self._is_dynamic_progress(piece) and piece.strip():
                 self.log_stream.write(piece)
         return len(text)
 
@@ -327,7 +327,13 @@ def link_or_copy_image(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst)
 
 
-def remap_label_file(src: Path, dst: Path, class_indices: list[int], label_space: str) -> None:
+def remap_label_file(
+    src: Path,
+    dst: Path,
+    class_indices: list[int],
+    label_space: str,
+    global_to_output: dict[int, int] | None = None,
+) -> None:
     """
     把当前任务标签写入全局类别空间。
 
@@ -351,18 +357,30 @@ def remap_label_file(src: Path, dst: Path, class_indices: list[int], label_space
                     f"标签 {src}:{line_number} 的局部类别 {class_id} 超出 class_indices 范围 {class_indices}"
                 )
             class_id = class_indices[class_id]
+        if global_to_output is not None:
+            if class_id not in global_to_output:
+                raise ValueError(
+                    f"标签 {src}:{line_number} 的全局类别 {class_id} 不在当前累计输出空间 "
+                    f"{sorted(global_to_output)} 中"
+                )
+            class_id = global_to_output[class_id]
         items[0] = str(class_id)
         remapped_lines.append(" ".join(items))
 
     dst.write_text("\n".join(remapped_lines) + ("\n" if remapped_lines else ""), encoding="utf-8")
 
 
-def prepare_global_task_data(task: dict, cfg: dict, output_dir: Path) -> Path:
+def prepare_global_task_data(
+    task: dict,
+    cfg: dict,
+    output_dir: Path,
+    active_class_indices: Iterable[int] | None = None,
+) -> Path:
     """
-    为当前任务生成全局类别空间下的 data.yaml。
+    为当前任务生成累计输出空间下的 data.yaml。
 
-    这是为了和论文的 Incremental Head 思路对齐：每个阶段的模型都保持同一个全局类别头，
-    当前任务的标签被映射到它负责的全局通道，后续才能按 class_indices 做检测头切片保留。
+    当前任务标签先还原成全局类别编号，再映射到本阶段累计 Detect head 的输出行。
+    T1 因而只包含基础类别通道；增量阶段才逐步加入新类别通道。
     """
     original_yaml = Path(task["data"])
     if not original_yaml.is_absolute():
@@ -377,6 +395,19 @@ def prepare_global_task_data(task: dict, cfg: dict, output_dir: Path) -> Path:
         raise ValueError("detector.names 的数量必须和 detector.total_classes 一致")
     if any(index < 0 or index >= total_classes for index in class_indices):
         raise ValueError(f"class_indices 必须落在 [0, {total_classes - 1}] 范围内: {class_indices}")
+    if active_class_indices is None:
+        active_class_indices = list(range(total_classes))
+    active_class_indices = [int(index) for index in active_class_indices]
+    if len(active_class_indices) != len(set(active_class_indices)):
+        raise ValueError(f"active_class_indices 不能重复: {active_class_indices}")
+    if any(index < 0 or index >= total_classes for index in active_class_indices):
+        raise ValueError(f"active_class_indices 必须落在 [0, {total_classes - 1}] 范围内: {active_class_indices}")
+    if not set(class_indices).issubset(active_class_indices):
+        raise ValueError(
+            f"当前任务类别 {class_indices} 必须包含在累计输出空间 {active_class_indices} 中"
+        )
+    global_to_output = {global_index: output_index for output_index, global_index in enumerate(active_class_indices)}
+    active_names = {output_index: names[global_index] for output_index, global_index in enumerate(active_class_indices)}
 
     prepared_root = output_dir / "prepared_data" / safe_task_name(task["name"])
     if prepared_root.exists():
@@ -409,13 +440,22 @@ def prepare_global_task_data(task: dict, cfg: dict, output_dir: Path) -> Path:
             print(f"[数据准备] {task['name']} 已按标签实际出现的全局类别修正为: {actual_indices}")
             class_indices = actual_indices
 
-    print(f"[数据准备] {task['name']} 标签编号模式: {label_space}，将写入全局 {total_classes} 类 data.yaml")
+    if not set(class_indices).issubset(active_class_indices):
+        raise ValueError(
+            f"标签解析后的当前任务类别 {class_indices} 必须包含在累计输出空间 {active_class_indices} 中"
+        )
+
+    print(
+        f"[数据准备] {task['name']} 标签编号模式: {label_space}，"
+        f"将写入累计 {len(active_class_indices)} 类 data.yaml"
+    )
 
     prepared_cfg = {
         "path": str(prepared_root.resolve()),
         "train": "images/train",
-        "nc": total_classes,
-        "names": names,
+        "nc": len(active_class_indices),
+        "names": active_names,
+        "global_class_indices": active_class_indices,
     }
     for split, records in split_records.items():
         prepared_cfg[split] = f"images/{split}"
@@ -423,7 +463,13 @@ def prepare_global_task_data(task: dict, cfg: dict, output_dir: Path) -> Path:
             dst_image = prepared_root / "images" / split / relative_path
             dst_label = prepared_root / "labels" / split / relative_path.with_suffix(".txt")
             link_or_copy_image(image_path, dst_image)
-            remap_label_file(infer_label_path(image_path), dst_label, class_indices, label_space)
+            remap_label_file(
+                infer_label_path(image_path),
+                dst_label,
+                class_indices,
+                label_space,
+                global_to_output,
+            )
 
     if "channels" in data_cfg:
         prepared_cfg["channels"] = data_cfg["channels"]
@@ -436,41 +482,48 @@ def prepare_global_task_data(task: dict, cfg: dict, output_dir: Path) -> Path:
     task["prepared_data"] = str(prepared_yaml)
     task["label_space"] = label_space
     task["resolved_class_indices"] = class_indices
+    task["active_class_indices"] = active_class_indices
     return prepared_yaml
 
 
-def build_full_head_model(cfg: dict):
+def build_class_head_model(cfg: dict, class_indices: Iterable[int]):
     """
-    构建全量类别检测头模型。
+    构建当前阶段累计类别检测头模型。
 
-    train_new1.py 的核心做法是：不用 YOLO(data.yaml) 自动推断当前任务类别数，
-    而是手动把模型 nc 固定为 total_classes=20。这样每个阶段训练时，模型输出
-    维度始终是全局 20 类，后续才能按类别切片做无样本融合。
+    T1 只建立已出现类别的输出通道；后续阶段再逐步扩展累计输出空间。
+    这样未来类别不会在基础任务训练期间被错误地当成背景负样本。
     """
     from ultralytics import YOLO
     from ultralytics.nn.tasks import DetectionModel, yaml_model_load
 
     detector = cfg["detector"]
     model_yaml = str(detector.get("model_yaml", "yolo11n.yaml"))
-    names = normalize_names(detector["names"])
-    total_classes = int(detector["total_classes"])
+    global_names = normalize_names(detector["names"])
+    class_indices = [int(index) for index in class_indices]
+    names = {output_index: global_names[global_index] for output_index, global_index in enumerate(class_indices)}
+    active_classes = len(class_indices)
 
     model_cfg = yaml_model_load(model_yaml)
-    model_cfg["nc"] = total_classes
+    model_cfg["nc"] = active_classes
 
     model = YOLO(model_yaml)
-    model.model = DetectionModel(model_cfg, nc=total_classes, verbose=False)
+    model.model = DetectionModel(model_cfg, nc=active_classes, verbose=False)
     model.model.names = names
     model.model.task = "detect"
     model.model.args = {"model": model_yaml, "task": "detect"}
-    model.model.yaml["nc"] = total_classes
+    model.model.yaml["nc"] = active_classes
     model.overrides.pop("nc", None)
     if model.ckpt is None:
         model.ckpt = {}
     if hasattr(model.model, "nc"):
-        model.model.nc = total_classes
+        model.model.nc = active_classes
 
     return model
+
+
+def build_full_head_model(cfg: dict):
+    """Build the fixed full-class reference model used by shared task vectors."""
+    return build_class_head_model(cfg, range(int(cfg["detector"]["total_classes"])))
 
 
 CLASS_NAME_ALIASES = {
@@ -612,20 +665,27 @@ def save_reference_checkpoint(cfg: dict, output_dir: Path) -> Path:
     return reference_path
 
 
-def configure_full_names(model, cfg: dict) -> None:
-    """加载已有 checkpoint 后，重新绑定全局类别名和 total_classes。"""
-    names = normalize_names(cfg["detector"]["names"])
-    total_classes = int(cfg["detector"]["total_classes"])
+def configure_active_names(model, cfg: dict, active_class_indices: Iterable[int]) -> None:
+    """加载已有 checkpoint 后，重新绑定当前累计输出空间的类别名。"""
+    global_names = normalize_names(cfg["detector"]["names"])
+    active_class_indices = [int(index) for index in active_class_indices]
+    names = {output_index: global_names[global_index] for output_index, global_index in enumerate(active_class_indices)}
+    active_classes = len(active_class_indices)
     model.model.names = names
     if hasattr(model.model, "yaml"):
-        model.model.yaml["nc"] = total_classes
+        model.model.yaml["nc"] = active_classes
     if hasattr(model.model, "args") and isinstance(model.model.args, dict):
         # 这里不能把 nc 写入 args。Ultralytics 会把 args 当训练参数校验，nc 不是合法训练参数。
         model.model.args.pop("nc", None)
     if hasattr(model, "overrides") and isinstance(model.overrides, dict):
         model.overrides.pop("nc", None)
     if hasattr(model.model, "nc"):
-        model.model.nc = total_classes
+        model.model.nc = active_classes
+
+
+def configure_full_names(model, cfg: dict) -> None:
+    """兼容旧入口：绑定完整全局类别名。"""
+    configure_active_names(model, cfg, range(int(cfg["detector"]["total_classes"])))
 
 
 def checkpoint_has_full_class_head(path: Path, total_classes: int) -> bool:
@@ -640,6 +700,61 @@ def checkpoint_has_full_class_head(path: Path, total_classes: int) -> bool:
     return all(state[key].shape[0] == total_classes for key in class_head_keys)
 
 
+def save_stage_initial_checkpoint(
+    cfg: dict,
+    output_dir: Path,
+    *,
+    task_index: int,
+    task_name: str,
+    active_class_indices: Iterable[int],
+    previous_checkpoint: str | Path | None,
+) -> Path:
+    """
+    Build the cumulative Detect head used to start one task.
+
+    T1 starts with only C1 outputs. For T2 and later tasks, construct a larger
+    single Detect head, load all shape-compatible previous weights, and copy the
+    old classification rows into the prefix of the expanded output layer.
+    """
+    active_class_indices = [int(index) for index in active_class_indices]
+    model = build_class_head_model(cfg, active_class_indices)
+    load_pretrained_full_head_weights(model, cfg["detector"]["base_weights"])
+
+    if previous_checkpoint is not None:
+        previous_state = load_state_dict(previous_checkpoint)
+        current_state = model.model.state_dict()
+        old_class_rows = 0
+
+        for key, previous_value in previous_state.items():
+            if key not in current_state:
+                continue
+            if current_state[key].shape == previous_value.shape:
+                current_state[key] = previous_value.detach().clone()
+
+        for key, value in list(current_state.items()):
+            if not _is_class_output_key(key) or key not in previous_state:
+                continue
+            previous_value = previous_state[key]
+            if value.dim() != previous_value.dim() or value.shape[1:] != previous_value.shape[1:]:
+                raise ValueError(f"Cannot expand classification output tensor {key}: {previous_value.shape} -> {value.shape}")
+            if previous_value.shape[0] > value.shape[0]:
+                raise ValueError(f"Expanded head shrank unexpectedly for {key}: {previous_value.shape} -> {value.shape}")
+            value[: previous_value.shape[0]] = previous_value.to(value.device, dtype=value.dtype)
+            current_state[key] = value
+            old_class_rows += int(previous_value.shape[0])
+
+        model.model.load_state_dict(current_state, strict=False)
+        print(
+            f"[Incremental Head] expanded cumulative head to {len(active_class_indices)} classes; "
+            f"restored old class-output rows={old_class_rows}"
+        )
+
+    configure_active_names(model, cfg, active_class_indices)
+    output_path = output_dir / f"task_{task_index}_{task_name}_init_{len(active_class_indices)}cls.pt"
+    model.save(output_path)
+    return output_path
+
+
 def train_one_task(
     weights: str | Path,
     task: dict,
@@ -652,32 +767,42 @@ def train_one_task(
     task_vector_history: list[StateDict],
     reference_state: StateDict,
     old_class_indices: Iterable[int] | None = None,
+    active_class_indices: Iterable[int] | None = None,
 ) -> Path:
     """
     训练单个阶段。
 
     第一阶段：
-    - 从 reference_full_head.pt 加载 20 类全量头模型；
+    - 从仅包含基础类别的阶段初始 checkpoint 开始；
     - 不使用 teacher。
 
     增量阶段：
-    - 从上一轮 DuET merged checkpoint 加载；
+    - 从上一轮 DuET merged checkpoint 扩展后的累计 head 加载；
     - 使用 old_ckpt 作为 teacher；
     - 在 on_train_start 回调中把 Ultralytics 默认 loss 替换为 DuETDetectionLoss。
     """
     from duet_repro.core.duet_loss import create_duet_criterion
     from ultralytics import YOLO
 
-    prepared_data = Path(task.get("prepared_data") or prepare_global_task_data(task, cfg, output_dir))
+    if active_class_indices is None:
+        active_class_indices = range(int(cfg["detector"]["total_classes"]))
+    active_class_indices = [int(index) for index in active_class_indices]
+    prepared_data = Path(
+        task.get("prepared_data")
+        or prepare_global_task_data(task, cfg, output_dir, active_class_indices=active_class_indices)
+    )
 
-    if is_first:
-        # 第一阶段从 reference_full_head.pt 开始，确保结构就是全局 20 类检测头。
-        model = YOLO(str(weights))
-        configure_full_names(model, cfg)
-    else:
-        # 后续阶段从上一轮合并模型继续训练，但仍保持全局 20 类 names/nc。
-        model = YOLO(str(weights))
-        configure_full_names(model, cfg)
+    model = YOLO(str(weights))
+    configure_active_names(model, cfg, active_class_indices)
+    state = model.model.state_dict()
+    class_output_keys = [key for key in state if _is_class_output_key(key)]
+    if not class_output_keys:
+        raise ValueError("No YOLO classification output tensors were found in the checkpoint.")
+    if any(state[key].shape[0] != len(active_class_indices) for key in class_output_keys):
+        shapes = {key: tuple(state[key].shape) for key in class_output_keys}
+        raise ValueError(
+            f"Checkpoint head does not match cumulative classes {active_class_indices}: {shapes}"
+        )
 
     training = cfg["training"]
     duet_cfg = cfg.get("duet", {})
@@ -705,6 +830,8 @@ def train_one_task(
             distill_weight=distill_weight,
             dc_weight=dc_weight,
             distill_temperature=float(duet_cfg.get("distill_temperature", 2.0)),
+            distill_cls_quantile=float(duet_cfg.get("distill_cls_quantile", 0.75)),
+            distill_bbox_quantile=float(duet_cfg.get("distill_bbox_quantile", 0.75)),
             reference_state=reference_state,
             shared_key_exclude=tuple(duet_cfg.get("shared_key_exclude", [])),
             old_class_indices=list(old_class_indices) if old_class_indices is not None else None,
@@ -789,27 +916,81 @@ def merge_full_head_slices(
     """
     learned = sorted({int(i) for i in learned_indices})
     current = sorted({int(i) for i in current_indices})
+    overlap = sorted(set(learned) & set(current))
+    if overlap:
+        raise ValueError(f"Incremental classes must be disjoint, but these indices were repeated: {overlap}")
     result = {key: value.detach().clone() for key, value in merged_state.items()}
+    copied_old_rows = 0
+    copied_current_rows = 0
+    class_output_keys = 0
 
     for key, value in list(result.items()):
         if not _is_class_output_key(key):
             continue
+        class_output_keys += 1
 
         if key in old_state:
             # 旧任务类别通道来自上一轮 merged checkpoint。
             for idx in learned:
                 if idx < value.shape[0] and idx < old_state[key].shape[0]:
                     value[idx] = old_state[key][idx].to(value.device, dtype=value.dtype)
+                    copied_old_rows += 1
 
         if key in new_state:
             # 当前任务类别通道来自本轮训练后的 checkpoint。
             for idx in current:
                 if idx < value.shape[0] and idx < new_state[key].shape[0]:
                     value[idx] = new_state[key][idx].to(value.device, dtype=value.dtype)
+                    copied_current_rows += 1
 
         result[key] = value
 
+    if class_output_keys == 0:
+        raise ValueError("No YOLO cv3 classification output tensors were found during Incremental Head merge.")
+    expected_old_rows = class_output_keys * len(learned)
+    expected_current_rows = class_output_keys * len(current)
+    if copied_old_rows != expected_old_rows or copied_current_rows != expected_current_rows:
+        raise ValueError(
+            "Incremental Head merge copied an unexpected number of rows: "
+            f"old={copied_old_rows}/{expected_old_rows}, current={copied_current_rows}/{expected_current_rows}"
+        )
+    print(
+        f"[Incremental Head] preserved old rows={copied_old_rows}, "
+        f"inserted current rows={copied_current_rows}"
+    )
     return result
+
+
+def validate_paper_training_config(cfg: dict) -> None:
+    """Reject configurations that violate the status1 paper-style cumulative-head protocol."""
+    total_classes = int(cfg["detector"]["total_classes"])
+    names = normalize_names(cfg["detector"]["names"])
+    if sorted(names) != list(range(total_classes)):
+        raise ValueError("detector.names must define contiguous global indices [0, total_classes).")
+
+    duet_cfg = cfg.get("duet", {})
+    shared_key_exclude = tuple(str(pattern).lower() for pattern in duet_cfg.get("shared_key_exclude", []))
+    if duet_cfg.get("enabled", True) and not any(pattern == "model.23" for pattern in shared_key_exclude):
+        raise ValueError(
+            "Paper-style YOLO11 partition requires shared_key_exclude to contain 'model.23': "
+            "backbone/neck are shared, while the complete Detect head is task-specific."
+        )
+
+    learned: list[int] = []
+    require_prefix_order = bool(duet_cfg.get("enabled", True)) and len(cfg.get("tasks", [])) > 1
+    for task_index, task in enumerate(cfg.get("tasks", []), start=1):
+        current = [int(index) for index in task["class_indices"]]
+        overlap = sorted(set(learned) & set(current))
+        if overlap:
+            raise ValueError(f"T{task_index} repeats previously learned classes: {overlap}")
+        learned.extend(current)
+        if require_prefix_order and learned != list(range(len(learned))):
+            raise ValueError(
+                "status1 cumulative-head training currently requires classes to arrive in global prefix order. "
+                f"After T{task_index}, got {learned}."
+            )
+    if len(learned) > total_classes:
+        raise ValueError(f"Tasks define {len(learned)} classes but detector.total_classes={total_classes}.")
 
 
 def print_run_guide(cfg: dict) -> None:
@@ -823,7 +1004,7 @@ def print_run_guide(cfg: dict) -> None:
     print("【运行说明】当前脚本会按下面顺序执行：")
     print("  第一部分：顺序训练每个任务，增量阶段会自动接入 DuET 蒸馏/DC loss")
     print("  第二部分：每个任务训练结束后，立刻执行 DuET Module 动态融合")
-    print("  第三部分：检测头按 class_indices 做通道切片保留，避免旧类被覆盖")
+    print("  第三部分：Detect head 逐阶段扩展，并按 class_indices 回填旧类/新类输出行")
     print("-" * 72)
     for idx, task in enumerate(cfg["tasks"], start=1):
         class_indices = ", ".join(str(i) for i in task.get("class_indices", []))
@@ -899,13 +1080,72 @@ def resolve_config_path(config_path: str | Path) -> Path:
     return (SCRIPT_DIR / path).resolve()
 
 
-def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
+def resolve_project_path(path: str | Path) -> Path:
+    """Resolve an experiment artifact relative to cwd or the project root."""
+    path = Path(path)
+    if path.is_absolute():
+        return path
+    for base in (Path.cwd(), PROJECT_ROOT):
+        candidate = base / path
+        if candidate.exists():
+            return candidate.resolve()
+    return (PROJECT_ROOT / path).resolve()
+
+
+def validate_resume_checkpoint(
+    checkpoint: str | Path,
+    learned_indices: Iterable[int],
+) -> Path:
+    """Ensure a reused checkpoint has exactly the cumulative head rows we expect."""
+    checkpoint = resolve_project_path(checkpoint)
+    if not checkpoint.exists():
+        raise FileNotFoundError(f"Resume checkpoint does not exist: {checkpoint}")
+
+    expected_rows = len([int(index) for index in learned_indices])
+    state = load_state_dict(checkpoint)
+    class_output_shapes = {
+        key: tuple(value.shape)
+        for key, value in state.items()
+        if _is_class_output_key(key)
+    }
+    if not class_output_shapes:
+        raise ValueError(f"Resume checkpoint has no YOLO cv3 classification outputs: {checkpoint}")
+    unexpected = {
+        key: shape
+        for key, shape in class_output_shapes.items()
+        if not shape or shape[0] != expected_rows
+    }
+    if unexpected:
+        raise ValueError(
+            f"Resume checkpoint must have {expected_rows} cumulative class rows, "
+            f"but found incompatible outputs: {unexpected}"
+        )
+    print(f"[resume] validated checkpoint head rows={expected_rows}: {checkpoint}")
+    return checkpoint
+
+
+def main(
+    config_path: str = "configs/train_pascal_2phase_full.yaml",
+    *,
+    start_task: int = 1,
+    previous_checkpoint: str | Path | None = None,
+    output_dir_override: str | Path | None = None,
+    training_overrides: dict | None = None,
+    duet_overrides: dict | None = None,
+) -> None:
     multiprocessing.freeze_support()
     # 保证相对路径如 yolo11n.pt、outputs/ 都以项目根目录为基准。
     config_path = resolve_config_path(config_path)
     os.chdir(PROJECT_ROOT)
 
     cfg = load_config(config_path)
+    if output_dir_override is not None:
+        cfg["experiment"]["output_dir"] = str(output_dir_override)
+    if training_overrides:
+        cfg.setdefault("training", {}).update(training_overrides)
+    if duet_overrides:
+        cfg.setdefault("duet", {}).update(duet_overrides)
+    validate_paper_training_config(cfg)
     seed_everything(int(cfg["experiment"].get("seed", 42)))
 
     output_dir = Path(cfg["experiment"]["output_dir"])
@@ -938,8 +1178,34 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
     history: list[dict] = []
     task_vector_history: list[StateDict] = []
     learned_indices: list[int] = []
-    current_weights: str | Path = reference_ckpt
     old_ckpt: str | Path | None = None
+
+    tasks = cfg["tasks"]
+    if start_task < 1 or start_task > len(tasks):
+        raise ValueError(f"start_task must be between 1 and {len(tasks)}, got {start_task}")
+    if start_task > 1:
+        if previous_checkpoint is None:
+            raise ValueError("previous_checkpoint is required when start_task > 1")
+        for completed_task in tasks[: start_task - 1]:
+            learned_indices.extend(int(index) for index in completed_task["class_indices"])
+        old_ckpt = validate_resume_checkpoint(previous_checkpoint, learned_indices)
+        previous_state = load_state_dict(old_ckpt)
+        task_vector_history.append(
+            task_vector(reference_state, previous_state, shared_key_exclude=shared_key_exclude)
+        )
+        history.append(
+            {
+                "task_index": start_task - 1,
+                "task": tasks[start_task - 2]["name"],
+                "class_indices": learned_indices.copy(),
+                "active_class_indices": learned_indices.copy(),
+                "learned_indices": learned_indices.copy(),
+                "merged_checkpoint": str(old_ckpt),
+                "reused_checkpoint": True,
+            }
+        )
+        print(f"[resume] skip completed tasks before T{start_task}; learned classes={learned_indices}")
+
     write_experiment_state(
         output_dir,
         cfg,
@@ -954,14 +1220,35 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
     # 只需要在 configs/train_new1_duet_yolo.yaml 中替换 tasks 列表。
     # =========================================================================
     for task_index, task in enumerate(cfg["tasks"], start=1):
-        prepared_data = prepare_global_task_data(task, cfg, output_dir)
+        if task_index < start_task:
+            print(f"[resume] skip T{task_index}: {task['name']}")
+            continue
         # class_indices 是当前任务类别在全局 20 类头中的通道位置。
-        current_indices = [int(i) for i in task.get("resolved_class_indices", task.get("class_indices", []))]
+        current_indices = [int(i) for i in task.get("class_indices", [])]
+        active_class_indices = [*learned_indices, *current_indices]
+        prepared_data = prepare_global_task_data(
+            task,
+            cfg,
+            output_dir,
+            active_class_indices=active_class_indices,
+        )
+        current_indices = [int(i) for i in task.get("resolved_class_indices", current_indices)]
+        active_class_indices = [*learned_indices, *current_indices]
+        stage_initial_ckpt = save_stage_initial_checkpoint(
+            cfg,
+            output_dir,
+            task_index=task_index,
+            task_name=task["name"],
+            active_class_indices=active_class_indices,
+            previous_checkpoint=old_ckpt,
+        )
         print("\n" + "=" * 72)
         print(f"【阶段 T{task_index}】开始训练：{task['name']}")
         print(f"原始 data.yaml: {task['data']}")
         print(f"全局 data.yaml: {prepared_data}")
         print(f"全局类别通道 class_indices: {current_indices}")
+        print(f"累计输出空间 active_class_indices: {active_class_indices}")
+        print(f"阶段初始 checkpoint: {stage_initial_ckpt}")
         print("=" * 72)
 
         prev_tv = None
@@ -970,7 +1257,7 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
             prev_tv = task_vector(reference_state, load_state_dict(old_ckpt), shared_key_exclude=shared_key_exclude)
 
         trained_ckpt = train_one_task(
-            current_weights,
+            stage_initial_ckpt,
             task,
             cfg,
             output_dir,
@@ -980,6 +1267,7 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
             task_vector_history=task_vector_history,
             reference_state=reference_state,
             old_class_indices=learned_indices,
+            active_class_indices=active_class_indices,
         )
 
         if task_index == 1 or not duet_cfg.get("enabled", True):
@@ -1025,7 +1313,6 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
         learned_indices = sorted(set(learned_indices) | set(current_indices))
         current_task_tv = task_vector(reference_state, merged_state, shared_key_exclude=shared_key_exclude)
         task_vector_history.append(current_task_tv)
-        current_weights = merged_ckpt
         old_ckpt = merged_ckpt
         print(f"【阶段 T{task_index}】完成。merged checkpoint: {merged_ckpt}")
 
@@ -1037,7 +1324,9 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
                 "prepared_data": task.get("prepared_data"),
                 "label_space": task.get("label_space"),
                 "class_indices": current_indices,
+                "active_class_indices": active_class_indices,
                 "learned_indices": learned_indices,
+                "stage_initial_checkpoint": str(stage_initial_ckpt),
                 "trained_checkpoint": str(trained_ckpt),
                 "merged_checkpoint": str(merged_ckpt),
                 "is_first_task": task_index == 1,
@@ -1059,5 +1348,31 @@ def main(config_path: str = "configs/train_pascal_2phase_full.yaml") -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/train_pascal_2phase_full.yaml")
+    parser.add_argument("--start-task", type=int)
+    parser.add_argument("--previous-checkpoint")
+    parser.add_argument("--output-dir")
+    parser.add_argument(
+        "--legacy-cumulative-head",
+        action="store_true",
+        help="use the older training-before-expansion approximation instead of paper-order post-training head concat",
+    )
     args = parser.parse_args()
-    main(args.config)
+    if args.legacy_cumulative_head:
+        main(
+            args.config,
+            start_task=args.start_task or 1,
+            previous_checkpoint=args.previous_checkpoint,
+            output_dir_override=args.output_dir,
+        )
+    else:
+        # Paper Algorithm 1: train the current task head first, then concatenate
+        # old/current task-specific heads after shared-parameter DuET merging.
+        sys.modules.setdefault("train_duet", sys.modules[__name__])
+        from train_duet_local_head import main as main_paper_order
+
+        main_paper_order(
+            args.config,
+            start_task_override=args.start_task,
+            previous_checkpoint_override=args.previous_checkpoint,
+            output_dir_override=args.output_dir,
+        )
