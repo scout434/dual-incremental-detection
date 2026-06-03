@@ -1,0 +1,69 @@
+experiment:
+  # 论文 Diverse Weather Two Phase 主实验：
+  # Daytime Sunny [1:4] -> Night Sunny [5:7]
+  name: status3_weather_2phase_duet_yolo11n
+  output_dir: status3/output/t2_only
+  seed: 42
+
+resume:
+  start_task: 2
+  previous_checkpoint: status3/output/main/task_1_daytime_sunny_1_4_best.pt
+
+detector:
+  base_weights: yolo11n.pt
+  model_yaml: yolo11n.yaml
+  # Diverse Weather 两阶段协议一共 7 个类别。
+  total_classes: 7
+  # 如果你知道真实类别名，可以把 class_1...class_7 改成真实名字；
+  # 下标顺序必须和 class_indices 以及标签全局编号一致。
+  names:
+    0: class_1
+    1: class_2
+    2: class_3
+    3: class_4
+    4: class_5
+    5: class_6
+    6: class_7
+
+training:
+  # 论文补充材料：100 epochs、5 warmup、batch 64、AdamW。
+  epochs: 100
+  warmup_epochs: 5
+  imgsz: 640
+  batch: 64
+  workers: 0
+  device: 0
+  optimizer: AdamW
+  cos_lr: true
+  lr0: 0.01
+  lrf: 0.01
+  freeze: 0
+  weight_decay_first: 0.0005
+  weight_decay_incremental: 0.001
+
+duet:
+  enabled: true
+  use_duet_module: true
+  gamma: 0.1
+  alpha_base: 0.5
+  distill_weight: 0.01
+  dc_weight: 0.01
+  distill_temperature: 2.0
+  shared_key_exclude:
+    - model.23
+  verbose_merge: false
+
+tasks:
+  # T1：Daytime Sunny [1:4]
+  # TODO：把 data 改成你服务器上 Daytime Sunny 1-4 切片的真实 data.yaml。
+  - name: daytime_sunny_1_4
+    data: /root/autodl-tmp/test_tasks/status3/daytime_sunny_1_4/data.yaml
+    class_indices: [0, 1, 2, 3]
+    labels_are_global: false
+
+  # T2：Night Sunny [5:7]
+  # TODO：把 data 改成你服务器上 Night Sunny 5-7 切片的真实 data.yaml。
+  - name: night_sunny_5_7
+    data: /root/autodl-tmp/test_tasks/status3/night_sunny_5_7/data.yaml
+    class_indices: [4, 5, 6]
+    labels_are_global: false

@@ -1,0 +1,38 @@
+manifest: status1/output/ablations/04_seqft_incremental_head_duet_distill/eval_manifest.json
+output: status1/output/ablations/04_seqft_incremental_head_duet_distill/metrics.json
+device: 0
+metric: map50
+split: val
+clamp_to_one: false
+checkpoint_aliases:
+  t1: status1/output/main/task_1_voc_1_10_best.pt
+  task_1: status1/output/main/task_1_voc_1_10_best.pt
+  voc_1_10: status1/output/main/task_1_voc_1_10_best.pt
+  ref_voc_11_20: status1/output/ref_voc/task_1_voc_11_20_best.pt
+  ref_clipart_1_10: status1/output/ref_clipart/task_1_clipart_1_10_best.pt
+retention:
+- name: RI_VOC_1_10
+  numerator:
+    checkpoint: final
+    data: data/pascal_voc_yolo/voc_1_10/data.yaml
+  denominator:
+    checkpoint: t1
+    data: data/pascal_voc_yolo/voc_1_10/data.yaml
+    prepare_global_labels: false
+generalization:
+- name: GI_VOC_11_20
+  numerator:
+    checkpoint: final
+    data: data/pascal_voc_yolo/voc_11_20/data.yaml
+  denominator:
+    checkpoint: ref_voc_11_20
+    data: data/pascal_voc_yolo/voc_11_20/data.yaml
+    prepare_global_labels: false
+- name: GI_Clipart_1_10
+  numerator:
+    checkpoint: final
+    data: data/clipart_paper_yolo/clipart_1_10/data.yaml
+  denominator:
+    checkpoint: ref_clipart_1_10
+    data: data/clipart_paper_yolo/clipart_1_10/data.yaml
+    prepare_global_labels: false

@@ -1,0 +1,80 @@
+{
+  "00_no_seqft": {
+    "title": "No Seq FT / No Incremental Head / No DuET / No losses",
+    "train_config": "status1/configs/ablations/00_no_seqft.yaml",
+    "eval_plan": "status1/configs/ablations/00_no_seqft_eval.yaml",
+    "output_dir": "status1/output/ablations/00_no_seqft",
+    "switches": {
+      "seq_ft": false,
+      "incremental_head": false,
+      "duet_module": false,
+      "distill": false,
+      "dc": false
+    }
+  },
+  "01_seqft": {
+    "title": "Seq FT only",
+    "train_config": "status1/configs/ablations/01_seqft.yaml",
+    "eval_plan": "status1/configs/ablations/01_seqft_eval.yaml",
+    "output_dir": "status1/output/ablations/01_seqft",
+    "switches": {
+      "seq_ft": true,
+      "incremental_head": false,
+      "duet_module": false,
+      "distill": false,
+      "dc": false
+    }
+  },
+  "02_seqft_incremental_head": {
+    "title": "Seq FT + Incremental Head",
+    "train_config": "status1/configs/ablations/02_seqft_incremental_head.yaml",
+    "eval_plan": "status1/configs/ablations/02_seqft_incremental_head_eval.yaml",
+    "output_dir": "status1/output/ablations/02_seqft_incremental_head",
+    "switches": {
+      "seq_ft": true,
+      "incremental_head": true,
+      "duet_module": false,
+      "distill": false,
+      "dc": false
+    }
+  },
+  "03_seqft_incremental_head_duet": {
+    "title": "Seq FT + Incremental Head + DuET Module",
+    "train_config": "status1/configs/ablations/03_seqft_incremental_head_duet.yaml",
+    "eval_plan": "status1/configs/ablations/03_seqft_incremental_head_duet_eval.yaml",
+    "output_dir": "status1/output/ablations/03_seqft_incremental_head_duet",
+    "switches": {
+      "seq_ft": true,
+      "incremental_head": true,
+      "duet_module": true,
+      "distill": false,
+      "dc": false
+    }
+  },
+  "04_seqft_incremental_head_duet_distill": {
+    "title": "Seq FT + Incremental Head + DuET Module + Distill",
+    "train_config": "status1/configs/ablations/04_seqft_incremental_head_duet_distill.yaml",
+    "eval_plan": "status1/configs/ablations/04_seqft_incremental_head_duet_distill_eval.yaml",
+    "output_dir": "status1/output/ablations/04_seqft_incremental_head_duet_distill",
+    "switches": {
+      "seq_ft": true,
+      "incremental_head": true,
+      "duet_module": true,
+      "distill": true,
+      "dc": false
+    }
+  },
+  "05_full": {
+    "title": "Seq FT + Incremental Head + DuET Module + Distill + DC",
+    "train_config": "status1/configs/ablations/05_full.yaml",
+    "eval_plan": "status1/configs/ablations/05_full_eval.yaml",
+    "output_dir": "status1/output/ablations/05_full",
+    "switches": {
+      "seq_ft": true,
+      "incremental_head": true,
+      "duet_module": true,
+      "distill": true,
+      "dc": true
+    }
+  }
+}

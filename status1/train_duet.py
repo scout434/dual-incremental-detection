@@ -920,6 +920,16 @@ def merge_full_head_slices(
     if overlap:
         raise ValueError(f"Incremental classes must be disjoint, but these indices were repeated: {overlap}")
     result = {key: value.detach().clone() for key, value in merged_state.items()}
+    # Keep the complete previous Detect head as the stable template. Only the
+    # current task's final classification rows are inserted below. This folds
+    # the successful head_t1_new_rows_t2 ablation into the normal train path.
+    preserved_detect_tensors = 0
+    for key, value in list(result.items()):
+        if not key.startswith("model.23.") or _is_class_output_key(key):
+            continue
+        if key in old_state and old_state[key].shape == value.shape:
+            result[key] = old_state[key].detach().clone().to(value.device, dtype=value.dtype)
+            preserved_detect_tensors += 1
     copied_old_rows = 0
     copied_current_rows = 0
     class_output_keys = 0
@@ -955,7 +965,7 @@ def merge_full_head_slices(
             f"old={copied_old_rows}/{expected_old_rows}, current={copied_current_rows}/{expected_current_rows}"
         )
     print(
-        f"[Incremental Head] preserved old rows={copied_old_rows}, "
+        f"[Incremental Head] preserved Detect tensors={preserved_detect_tensors}, old rows={copied_old_rows}, "
         f"inserted current rows={copied_current_rows}"
     )
     return result
@@ -1095,6 +1105,9 @@ def resolve_project_path(path: str | Path) -> Path:
 def validate_resume_checkpoint(
     checkpoint: str | Path,
     learned_indices: Iterable[int],
+    *,
+    total_classes: int | None = None,
+    allow_full_head: bool = False,
 ) -> Path:
     """Ensure a reused checkpoint has exactly the cumulative head rows we expect."""
     checkpoint = resolve_project_path(checkpoint)
@@ -1110,24 +1123,28 @@ def validate_resume_checkpoint(
     }
     if not class_output_shapes:
         raise ValueError(f"Resume checkpoint has no YOLO cv3 classification outputs: {checkpoint}")
+    allowed_rows = {expected_rows}
+    if allow_full_head and total_classes is not None:
+        allowed_rows.add(int(total_classes))
     unexpected = {
         key: shape
         for key, shape in class_output_shapes.items()
-        if not shape or shape[0] != expected_rows
+        if not shape or shape[0] not in allowed_rows
     }
     if unexpected:
         raise ValueError(
-            f"Resume checkpoint must have {expected_rows} cumulative class rows, "
+            f"Resume checkpoint must have one of {sorted(allowed_rows)} cumulative class rows, "
             f"but found incompatible outputs: {unexpected}"
         )
-    print(f"[resume] validated checkpoint head rows={expected_rows}: {checkpoint}")
+    actual_rows = sorted({shape[0] for shape in class_output_shapes.values()})
+    print(f"[resume] validated checkpoint head rows={actual_rows}: {checkpoint}")
     return checkpoint
 
 
 def main(
-    config_path: str = "configs/train_pascal_2phase_full.yaml",
+    config_path: str | Path = SCRIPT_DIR / "configs" / "train.yaml",
     *,
-    start_task: int = 1,
+    start_task: int | None = None,
     previous_checkpoint: str | Path | None = None,
     output_dir_override: str | Path | None = None,
     training_overrides: dict | None = None,
@@ -1139,6 +1156,11 @@ def main(
     os.chdir(PROJECT_ROOT)
 
     cfg = load_config(config_path)
+    resume_cfg = cfg.get("resume", {})
+    if start_task is None:
+        start_task = int(resume_cfg.get("start_task", 1))
+    if previous_checkpoint is None:
+        previous_checkpoint = resume_cfg.get("previous_checkpoint")
     if output_dir_override is not None:
         cfg["experiment"]["output_dir"] = str(output_dir_override)
     if training_overrides:
@@ -1148,7 +1170,8 @@ def main(
     validate_paper_training_config(cfg)
     seed_everything(int(cfg["experiment"].get("seed", 42)))
 
-    output_dir = Path(cfg["experiment"]["output_dir"])
+    output_dir = resolve_project_path(cfg["experiment"]["output_dir"])
+    cfg["experiment"]["output_dir"] = str(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     setup_console_txt_log(output_dir)
 
@@ -1188,7 +1211,12 @@ def main(
             raise ValueError("previous_checkpoint is required when start_task > 1")
         for completed_task in tasks[: start_task - 1]:
             learned_indices.extend(int(index) for index in completed_task["class_indices"])
-        old_ckpt = validate_resume_checkpoint(previous_checkpoint, learned_indices)
+        old_ckpt = validate_resume_checkpoint(
+            previous_checkpoint,
+            learned_indices,
+            total_classes=int(cfg["detector"]["total_classes"]),
+            allow_full_head=bool(resume_cfg.get("allow_full_head_previous", False)),
+        )
         previous_state = load_state_dict(old_ckpt)
         task_vector_history.append(
             task_vector(reference_state, previous_state, shared_key_exclude=shared_key_exclude)
@@ -1270,6 +1298,13 @@ def main(
             active_class_indices=active_class_indices,
         )
 
+        use_incremental_head = bool(cfg.get("ablation", {}).get("incremental_head", True))
+        old_state = None
+        new_state = None
+        if task_index > 1:
+            old_state = load_state_dict(old_ckpt)
+            new_state = load_state_dict(trained_ckpt)
+
         if task_index == 1 or not duet_cfg.get("enabled", True):
             # 第一阶段没有旧任务，直接把训练后的模型作为 merged checkpoint。
             print(f"【阶段 T{task_index}】第一阶段无旧模型，跳过 DuET merge，直接保存 best checkpoint。")
@@ -1278,8 +1313,6 @@ def main(
         else:
             # 增量阶段：共享层走 DuET Module 动态融合。
             print(f"【阶段 T{task_index}】进入 DuET 融合：共享 backbone/neck 动态融合 + Detect head 按任务拼接。")
-            old_state = load_state_dict(old_ckpt)
-            new_state = load_state_dict(trained_ckpt)
             merged_state, report = merge_state_dicts_with_duet_module(
                 reference_state,
                 old_state,
@@ -1297,9 +1330,9 @@ def main(
             )
             merged_ckpt = output_dir / f"task_{task_index}_{task['name']}_duet.pt"
 
-        if task_index == 1 or not duet_cfg.get("enabled", True):
+        if task_index == 1:
             inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
-        else:
+        elif use_incremental_head:
             merged_state = merge_full_head_slices(
                 merged_state,
                 old_state,
@@ -1307,6 +1340,9 @@ def main(
                 learned_indices=learned_indices,
                 current_indices=current_indices,
             )
+            inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
+        else:
+            print("[Ablation] incremental_head=false; keep the current task trained Detect head without old-row refill.")
             inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
 
         # 记录已经学习过的全局类别通道，供下一轮 head slice 合并使用。
@@ -1347,32 +1383,14 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/train_pascal_2phase_full.yaml")
+    parser.add_argument("--config", default=str(SCRIPT_DIR / "configs" / "train.yaml"))
     parser.add_argument("--start-task", type=int)
     parser.add_argument("--previous-checkpoint")
     parser.add_argument("--output-dir")
-    parser.add_argument(
-        "--legacy-cumulative-head",
-        action="store_true",
-        help="use the older training-before-expansion approximation instead of paper-order post-training head concat",
-    )
     args = parser.parse_args()
-    if args.legacy_cumulative_head:
-        main(
-            args.config,
-            start_task=args.start_task or 1,
-            previous_checkpoint=args.previous_checkpoint,
-            output_dir_override=args.output_dir,
-        )
-    else:
-        # Paper Algorithm 1: train the current task head first, then concatenate
-        # old/current task-specific heads after shared-parameter DuET merging.
-        sys.modules.setdefault("train_duet", sys.modules[__name__])
-        from train_duet_local_head import main as main_paper_order
-
-        main_paper_order(
-            args.config,
-            start_task_override=args.start_task,
-            previous_checkpoint_override=args.previous_checkpoint,
-            output_dir_override=args.output_dir,
-        )
+    main(
+        args.config,
+        start_task=args.start_task,
+        previous_checkpoint=args.previous_checkpoint,
+        output_dir_override=args.output_dir,
+    )

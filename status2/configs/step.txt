@@ -1,6 +1,0 @@
-python train_duet.py --config configs/train_multiphase_full.yaml
-python train_duet.py --config configs/train_reference_watercolor_4_6.yaml
-python train_duet.py --config configs/train_reference_comic_1_3.yaml
-python train_duet.py --config configs/train_reference_clipart_1_6.yaml
-python train_duet.py --config configs/train_reference_voc_1_13.yaml
-python eval_paper_metrics.py --plan configs/paper_metrics_multiphase_full.yaml
