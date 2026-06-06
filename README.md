@@ -195,7 +195,7 @@ class_id x_center y_center width height
 
 数据集下载链接：[双增量数据库 · 数据集](https://www.modelscope.cn/datasets/libowen223/duet/tree/master/downloads)
 
-![image-20260606222934163](assets\image-20260606222934163.png)
+![image-20260606222934163](assets/image-20260606222934163.png)
 
 默认配置下，场景1和场景3的 zip 放置位置如下：
 
@@ -217,7 +217,7 @@ data_process/configs/status1.yaml
 data_process/configs/status3.yaml
 ```
 
-![image-20260606223229955](assets\image-20260606223229955.png)
+![image-20260606223229955](assets/image-20260606223229955.png)
 
 ### 6.2 数据处理 YAML 主要字段说明
 
@@ -527,7 +527,7 @@ status1:[双增量数据库 · 数据集](https://www.modelscope.cn/datasets/lib
 
 status3:[双增量数据库 · 数据集](https://www.modelscope.cn/datasets/libowen223/duet/tree/master/status3-pt)
 
-![image-20260606223931757](assets\image-20260606223931757.png)
+![image-20260606223931757](assets/image-20260606223931757.png)
 
 放置后，可以跳过训练，直接执行评估命令：
 
