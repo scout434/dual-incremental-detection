@@ -1,0 +1,91 @@
+{
+  "metric": "map50",
+  "clamp_to_one": false,
+  "avg_ri": 0.210188798815772,
+  "avg_gi": 0.22676592435818843,
+  "rai": 0.21847736158698022,
+  "avg_ri_percent": 21.0188798815772,
+  "avg_gi_percent": 22.676592435818844,
+  "rai_percent": 21.847736158698023,
+  "retention": [
+    0.210188798815772
+  ],
+  "generalization": [
+    0.2804924201097367,
+    0.1730394286066402
+  ],
+  "retention_details": [
+    {
+      "name": "RI_VOC_1_10",
+      "ratio": 0.210188798815772,
+      "ratio_percent": 21.0188798815772,
+      "numerator": {
+        "value": 0.17420041373046807,
+        "checkpoint": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_1_10/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.8287806710535165,
+        "checkpoint": "status1/output/main/task_1_voc_1_10_best.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_1_10/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    }
+  ],
+  "generalization_details": [
+    {
+      "name": "GI_VOC_11_20",
+      "ratio": 0.2804924201097367,
+      "ratio_percent": 28.049242010973668,
+      "numerator": {
+        "value": 0.22349140293944997,
+        "checkpoint": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_11_20/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.7967823260678978,
+        "checkpoint": "status1/output/ref_voc/task_1_voc_11_20_best.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_11_20/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    },
+    {
+      "name": "GI_Clipart_1_10",
+      "ratio": 0.1730394286066402,
+      "ratio_percent": 17.30394286066402,
+      "numerator": {
+        "value": 0.06820455800178576,
+        "checkpoint": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+        "data": "data/status1/clipart_paper_yolo/clipart_1_10/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.39415616747574306,
+        "checkpoint": "status1/output/ref_clipart/task_1_clipart_1_10_best.pt",
+        "data": "data/status1/clipart_paper_yolo/clipart_1_10/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    }
+  ],
+  "checkpoint_aliases": {
+    "reference": "status1/output/ablations/02_seqft_incremental_head/reference_full_head.pt",
+    "latest": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+    "final": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+    "t1": "status1/output/main/task_1_voc_1_10_best.pt",
+    "task_1": "status1/output/main/task_1_voc_1_10_best.pt",
+    "voc_1_10": "status1/output/main/task_1_voc_1_10_best.pt",
+    "t2": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+    "task_2": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+    "clipart_11_20": "status1/output/ablations/02_seqft_incremental_head/task_2_clipart_11_20_best.pt",
+    "t2_trained": "/root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/02_seqft_incremental_head/runs/clipart_11_20/weights/best.pt",
+    "task_2_trained": "/root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/02_seqft_incremental_head/runs/clipart_11_20/weights/best.pt",
+    "clipart_11_20_trained": "/root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/02_seqft_incremental_head/runs/clipart_11_20/weights/best.pt",
+    "ref_voc_11_20": "status1/output/ref_voc/task_1_voc_11_20_best.pt",
+    "ref_clipart_1_10": "status1/output/ref_clipart/task_1_clipart_1_10_best.pt"
+  }
+}

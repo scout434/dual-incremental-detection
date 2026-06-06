@@ -1,0 +1,60 @@
+[
+  {
+    "task_index": 1,
+    "task": "daytime_sunny_1_4",
+    "class_indices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "active_class_indices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "learned_indices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "merged_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/main/task_1_daytime_sunny_1_4_best.pt",
+    "reused_checkpoint": true
+  },
+  {
+    "task_index": 2,
+    "task": "night_sunny_5_7",
+    "data": "/home/lenovo/gaoyingying/tasks/task_4/data.yaml",
+    "prepared_data": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/main/prepared_data/night_sunny_5_7/data.yaml",
+    "label_space": "local",
+    "class_indices": [
+      4,
+      5,
+      6
+    ],
+    "active_class_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "learned_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "stage_initial_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/main/task_2_night_sunny_5_7_init_7cls.pt",
+    "trained_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/main/runs/night_sunny_5_7/weights/best.pt",
+    "merged_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/main/task_2_night_sunny_5_7_duet.pt",
+    "is_first_task": false
+  }
+]

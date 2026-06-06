@@ -1,0 +1,87 @@
+{
+  "metric": "map50",
+  "clamp_to_one": false,
+  "avg_ri": 0.8687844872511727,
+  "avg_gi": 0.4433374748900438,
+  "rai": 0.6560609810706083,
+  "avg_ri_percent": 86.87844872511728,
+  "avg_gi_percent": 44.33374748900438,
+  "rai_percent": 65.60609810706083,
+  "retention": [
+    0.8687844872511727
+  ],
+  "generalization": [
+    0.17760434934705988,
+    0.7090706004330277
+  ],
+  "retention_details": [
+    {
+      "name": "RI_VOC_1_10",
+      "ratio": 0.8687844872511727,
+      "ratio_percent": 86.87844872511728,
+      "numerator": {
+        "value": 0.7200317903449122,
+        "checkpoint": "status1/output/main/task_2_clipart_11_20_duet.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_1_10/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.8287806710535165,
+        "checkpoint": "status1/output/main/task_1_voc_1_10_best.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_1_10/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    }
+  ],
+  "generalization_details": [
+    {
+      "name": "GI_VOC_11_20",
+      "ratio": 0.17760434934705988,
+      "ratio_percent": 17.760434934705987,
+      "numerator": {
+        "value": 0.14151200659252589,
+        "checkpoint": "status1/output/main/task_2_clipart_11_20_duet.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_11_20/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.7967823260678978,
+        "checkpoint": "status1/output/ref_voc/task_1_voc_11_20_best.pt",
+        "data": "data/status1/pascal_voc_yolo/voc_11_20/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    },
+    {
+      "name": "GI_Clipart_1_10",
+      "ratio": 0.7090706004330277,
+      "ratio_percent": 70.90706004330278,
+      "numerator": {
+        "value": 0.2794845503364062,
+        "checkpoint": "status1/output/main/task_2_clipart_11_20_duet.pt",
+        "data": "data/status1/clipart_paper_yolo/clipart_1_10/data.yaml",
+        "source": "val"
+      },
+      "denominator": {
+        "value": 0.39415616747574306,
+        "checkpoint": "status1/output/ref_clipart/task_1_clipart_1_10_best.pt",
+        "data": "data/status1/clipart_paper_yolo/clipart_1_10/data.yaml",
+        "source": "val"
+      },
+      "note": ""
+    }
+  ],
+  "checkpoint_aliases": {
+    "latest": "status1/output/main/task_2_clipart_11_20_duet.pt",
+    "final": "status1/output/main/task_2_clipart_11_20_duet.pt",
+    "t1": "status1/output/main/task_1_voc_1_10_best.pt",
+    "task_1": "status1/output/main/task_1_voc_1_10_best.pt",
+    "voc_1_10": "status1/output/main/task_1_voc_1_10_best.pt",
+    "t2": "status1/output/main/task_2_clipart_11_20_duet.pt",
+    "task_2": "status1/output/main/task_2_clipart_11_20_duet.pt",
+    "clipart_11_20": "status1/output/main/task_2_clipart_11_20_duet.pt",
+    "ref_voc_11_20": "status1/output/ref_voc/task_1_voc_11_20_best.pt",
+    "ref_clipart_1_10": "status1/output/ref_clipart/task_1_clipart_1_10_best.pt"
+  }
+}

@@ -1,0 +1,116 @@
+experiment:
+  name: ablation_02_seqft_incremental_head
+  output_dir: /root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/02_seqft_incremental_head
+  seed: 42
+resume:
+  start_task: 2
+  previous_checkpoint: status1/output/main/task_1_voc_1_10_best.pt
+detector:
+  base_weights: yolo11n.pt
+  model_yaml: yolo11n.yaml
+  total_classes: 20
+  names:
+    0: bicycle
+    1: bird
+    2: car
+    3: cat
+    4: dog
+    5: person
+    6: aeroplane
+    7: boat
+    8: bottle
+    9: bus
+    10: chair
+    11: cow
+    12: diningtable
+    13: horse
+    14: motorbike
+    15: pottedplant
+    16: sheep
+    17: sofa
+    18: train
+    19: tvmonitor
+training:
+  epochs: 100
+  warmup_epochs: 5
+  imgsz: 640
+  batch: 64
+  workers: 0
+  device: 0
+  optimizer: AdamW
+  cos_lr: true
+  lr0: 0.01
+  lrf: 0.01
+  freeze: 0
+  weight_decay_first: 0.0005
+  weight_decay_incremental: 0.001
+duet:
+  enabled: false
+  use_duet_module: false
+  gamma: 0.1
+  alpha_base: 0.5
+  distill_weight: 0.0
+  dc_weight: 0.0
+  distill_temperature: 2.0
+  shared_key_exclude:
+  - model.23
+  verbose_merge: false
+tasks:
+- name: voc_1_10
+  data: data/pascal_voc_yolo/voc_1_10/data.yaml
+  class_indices:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  labels_are_global: auto
+- name: clipart_11_20
+  data: data/clipart_paper_yolo/clipart_11_20/data.yaml
+  class_indices:
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  labels_are_global: auto
+  prepared_data: /root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/02_seqft_incremental_head/prepared_data/clipart_11_20/data.yaml
+  label_space: local
+  resolved_class_indices:
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  active_class_indices:
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+ablation:
+  name: 02_seqft_incremental_head
+  title: Seq FT + Incremental Head
+  seq_ft: true
+  incremental_head: true
+  local_parallel_head: true

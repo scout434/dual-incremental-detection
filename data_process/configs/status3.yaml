@@ -1,0 +1,43 @@
+kind: voc_zip_slices
+zip_root: data/downloads
+data_root: data/status3
+class_names: [bike, bus, car, motor, person, rider, truck]
+update_configs:
+  - status3/configs/train.yaml
+  - status3/configs/train_t2_only.yaml
+  - status3/configs/ref_daytime.yaml
+  - status3/configs/ref_night.yaml
+
+daytime_sunny_zips:
+  daytime_sunny_1_4:
+    zip: Daytime_Sunny.zip
+  daytime_sunny_5_7:
+    zip: Daytime_Sunny.zip
+
+night_sunny_zips:
+  night_sunny_5_7:
+    zip: Night-Sunny.zip
+  night_sunny_1_4:
+    zip: Night-Sunny.zip
+
+# Daytime Sunny uses train for training and test for validation.
+daytime_sunny_tasks:
+  - name: daytime_sunny_1_4
+    class_indices: [0, 1, 2, 3]
+    train_split: train
+    val_split: test
+  - name: daytime_sunny_5_7
+    class_indices: [4, 5, 6]
+    train_split: train
+    val_split: test
+
+# Night Sunny uses train for training and test for validation.
+night_sunny_tasks:
+  - name: night_sunny_5_7
+    class_indices: [4, 5, 6]
+    train_split: train
+    val_split: test
+  - name: night_sunny_1_4
+    class_indices: [0, 1, 2, 3]
+    train_split: train
+    val_split: test

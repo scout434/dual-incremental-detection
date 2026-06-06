@@ -1,0 +1,46 @@
+kind: voc_clipart
+zip_root: data/downloads
+data_root: data/status1
+voc_zips:
+  - VOCtrainval_06-Nov-2007.zip
+  - VOCtest_06-Nov-2007.zip
+  - VOCtrainval_11-May-2012.zip
+clipart_zip: clipart.zip
+update_configs:
+  - status1/configs/train.yaml
+  - status1/configs/train_t2_only.yaml
+  - status1/configs/ref_voc.yaml
+  - status1/configs/ref_clipart.yaml
+  - status1/configs/eval.yaml
+  - status1/configs/ablations/*.yaml
+
+# VOC uses train2012 + train2007 + val2012 + val2007 for training,
+# and test2007 for validation, matching the paper-style split used here.
+voc_tasks:
+  - name: voc_1_10
+    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    train_splits: [train2012, train2007, val2012, val2007]
+    val_split: test2007
+  - name: voc_11_20
+    class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    train_splits: [train2012, train2007, val2012, val2007]
+    val_split: test2007
+  - name: voc_1_20
+    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    train_splits: [train2012, train2007, val2012, val2007]
+    val_split: test2007
+
+# Clipart uses train for training and test for validation.
+clipart_tasks:
+  - name: clipart_1_10
+    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    train_split: train
+    val_split: test
+  - name: clipart_11_20
+    class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    train_split: train
+    val_split: test
+  - name: clipart_1_20
+    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    train_split: train
+    val_split: test

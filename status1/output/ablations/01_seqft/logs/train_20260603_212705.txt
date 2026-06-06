@@ -1,0 +1,122 @@
+[日志] 本次训练控制台输出将同步保存到: status1/output/ablations/01_seqft/logs/train_20260603_212705.txt
+
+========================================================================
+【运行说明】当前脚本会按下面顺序执行：
+  第一部分：顺序训练每个任务，增量阶段会自动接入 DuET 蒸馏/DC loss
+  第二部分：每个任务训练结束后，立刻执行 DuET Module 动态融合
+  第三部分：检测头按 class_indices 做通道切片保留，避免旧类被覆盖
+------------------------------------------------------------------------
+T1: voc_1_10
+    data.yaml      : data/pascal_voc_yolo/voc_1_10/data.yaml
+    class_indices  : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    是否第一阶段   : 是，使用 yolo11n.pt 初始化 backbone/neck
+T2: clipart_11_20
+    data.yaml      : data/clipart_paper_yolo/clipart_11_20/data.yaml
+    class_indices  : [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    是否第一阶段   : 否，使用上一阶段 merged checkpoint
+========================================================================
+
+[DuET reference] loaded exact tensors=448, class-output rows copied=60 from yolo11n.pt
+[数据准备] voc_1_10 标签编号模式: local，将写入全局 20 类 data.yaml
+
+========================================================================
+【阶段 T1】开始训练：voc_1_10
+原始 data.yaml: data/pascal_voc_yolo/voc_1_10/data.yaml
+全局 data.yaml: status1/output/ablations/01_seqft/prepared_data/voc_1_10/data.yaml
+全局类别通道 class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+========================================================================
+Ultralytics 8.4.60 🚀 Python-3.10.20 torch-2.11.0+cu126 CUDA:0 (NVIDIA GeForce RTX 4090, 24111MiB)
+[34m[1mengine/trainer: [0magnostic_nms=False, amp=True, angle=1.0, augment=False, auto_augment=randaugment, batch=64, bgr=0.0, box=7.5, cache=False, cfg=None, classes=None, close_mosaic=10, cls=0.5, cls_pw=0.0, compile=False, conf=None, copy_paste=0.0, copy_paste_mode=flip, cos_lr=True, cutmix=0.0, data=status1/output/ablations/01_seqft/prepared_data/voc_1_10/data.yaml, degrees=0.0, deterministic=True, device=0, dfl=1.5, dnn=False, dropout=0.0, dynamic=False, embed=None, end2end=None, epochs=100, erasing=0.4, exist_ok=True, fliplr=0.5, flipud=0.0, format=torchscript, fraction=1.0, freeze=0, half=False, hsv_h=0.015, hsv_s=0.7, hsv_v=0.4, imgsz=640, int8=False, iou=0.7, keras=False, kobj=1.0, line_width=None, lr0=0.01, lrf=0.01, mask_ratio=4, max_det=300, mixup=0.0, mode=train, model=status1/output/ablations/01_seqft/reference_full_head.pt, momentum=0.937, mosaic=1.0, multi_scale=0.0, name=voc_1_10, nbs=64, nms=False, opset=None, optimize=False, optimizer=AdamW, overlap_mask=True, patience=100, perspective=0.0, plots=True, pose=12.0, pretrained=True, profile=False, project=status1/output/ablations/01_seqft/runs, rect=False, resume=False, retina_masks=False, rle=1.0, save=True, save_conf=False, save_crop=False, save_dir=/root/autodl-tmp/dual/dual-incremental-detection-ablation/runs/detect/status1/output/ablations/01_seqft/runs/voc_1_10, save_frames=False, save_json=False, save_period=-1, save_txt=False, scale=0.5, seed=0, shear=0.0, show=False, show_boxes=True, show_conf=True, show_labels=True, simplify=True, single_cls=False, source=None, split=val, stream_buffer=False, task=detect, time=None, tracker=botsort.yaml, translate=0.1, val=True, verbose=True, vid_stride=1, visualize=False, warmup_bias_lr=0.1, warmup_epochs=5, warmup_momentum=0.8, weight_decay=0.0005, workers=0, workspace=None
+
+                   from  n    params  module                                       arguments                     
+  0                  -1  1       464  ultralytics.nn.modules.conv.Conv             [3, 16, 3, 2]                 
+  1                  -1  1      4672  ultralytics.nn.modules.conv.Conv             [16, 32, 3, 2]                
+  2                  -1  1      6640  ultralytics.nn.modules.block.C3k2            [32, 64, 1, False, 0.25]      
+  3                  -1  1     36992  ultralytics.nn.modules.conv.Conv             [64, 64, 3, 2]                
+  4                  -1  1     26080  ultralytics.nn.modules.block.C3k2            [64, 128, 1, False, 0.25]     
+  5                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+  6                  -1  1     87040  ultralytics.nn.modules.block.C3k2            [128, 128, 1, True]           
+  7                  -1  1    295424  ultralytics.nn.modules.conv.Conv             [128, 256, 3, 2]              
+  8                  -1  1    346112  ultralytics.nn.modules.block.C3k2            [256, 256, 1, True]           
+  9                  -1  1    164608  ultralytics.nn.modules.block.SPPF            [256, 256, 5]                 
+ 10                  -1  1    249728  ultralytics.nn.modules.block.C2PSA           [256, 256, 1]                 
+ 11                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 12             [-1, 6]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 13                  -1  1    111296  ultralytics.nn.modules.block.C3k2            [384, 128, 1, False]          
+ 14                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 15             [-1, 4]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 16                  -1  1     32096  ultralytics.nn.modules.block.C3k2            [256, 64, 1, False]           
+ 17                  -1  1     36992  ultralytics.nn.modules.conv.Conv             [64, 64, 3, 2]                
+ 18            [-1, 13]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 19                  -1  1     86720  ultralytics.nn.modules.block.C3k2            [192, 128, 1, False]          
+ 20                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+ 21            [-1, 10]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 22                  -1  1    378880  ultralytics.nn.modules.block.C3k2            [384, 256, 1, True]           
+ 23        [16, 19, 22]  1    434572  ultralytics.nn.modules.head.Detect           [20, 16, None, [64, 128, 256]]
+YOLO11n summary: 182 layers, 2,593,740 parameters, 2,593,724 gradients, 6.5 GFLOPs
+
+Transferred 499/499 items from pretrained weights
+Freezing layer 'model.23.dfl.conv.weight'
+[34m[1mAMP: [0mrunning Automatic Mixed Precision (AMP) checks...
+[34m[1mAMP: [0mchecks passed ✅
+[34m[1mtrain: [0mFast image access ✅ (ping: 0.0±0.0 ms, read: 2882.2±1026.2 MB/s, size: 132.4 KB)
+
+[34m[1mtrain: [0mNew cache created: /root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/01_seqft/prepared_data/voc_1_10/labels/train.cache
+[34m[1mval: [0mFast image access ✅ (ping: 0.0±0.0 ms, read: 1914.7±278.8 MB/s, size: 62.1 KB)
+
+[34m[1mval: [0mNew cache created: /root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/output/ablations/01_seqft/prepared_data/voc_1_10/labels/val.cache
+[34m[1moptimizer:[0m AdamW(lr=0.01, momentum=0.937) with parameter groups 81 weight(decay=0.0), 88 weight(decay=0.0005), 87 bias(decay=0.0)
+Plotting labels to /root/autodl-tmp/dual/dual-incremental-detection-ablation/runs/detect/status1/output/ablations/01_seqft/runs/voc_1_10/labels.jpg... 
+Image sizes 640 train, 640 val
+Using 0 dataloader workers
+Logging results to [1m/root/autodl-tmp/dual/dual-incremental-detection-ablation/runs/detect/status1/output/ablations/01_seqft/runs/voc_1_10[0m
+Starting training for 100 epochs...
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       3950      10248      0.231        0.1     0.0688     0.0269
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+
+                   all       3950      10248      0.634     0.0384     0.0134    0.00527
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+
+Traceback (most recent call last):
+  File "/root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/run_ablation.py", line 234, in <module>
+    main()
+  File "/root/autodl-tmp/dual/dual-incremental-detection-ablation/status1/run_ablation.py", line 230, in main
+    train_main(train_cfg_path)
+  File "/root/autodl-tmp/dual/dual-incremental-detection-ablation/train_duet.py", line 944, in main
+    trained_ckpt = train_one_task(
+  File "/root/autodl-tmp/dual/dual-incremental-detection-ablation/train_duet.py", line 725, in train_one_task
+    model.train(
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/engine/model.py", line 792, in train
+    self.trainer.train()
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/engine/trainer.py", line 246, in train
+    self._do_train()
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/engine/trainer.py", line 421, in _do_train
+    for i, batch in pbar:
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/utils/tqdm.py", line 350, in __iter__
+    for item in self.iterable:
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/data/build.py", line 82, in __iter__
+    yield next(self.iterator)
+  File "/root/miniconda3/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 741, in __next__
+    data = self._next_data()
+  File "/root/miniconda3/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 801, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/root/miniconda3/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 54, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/root/miniconda3/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 54, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/data/base.py", line 397, in __getitem__
+    return self.transforms(self.get_image_and_label(index))
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/data/augment.py", line 158, in __call__
+    data = t(data)
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/data/augment.py", line 54, in __call__
+    labels = self.apply_image(labels, params)
+  File "/root/miniconda3/lib/python3.10/site-packages/ultralytics/data/augment.py", line 1472, in apply_image
+    im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
+KeyboardInterrupt

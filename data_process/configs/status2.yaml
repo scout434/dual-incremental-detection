@@ -1,0 +1,36 @@
+kind: zip_yolo
+zip_root: data/downloads/status2
+output_root: data/status2_tasks
+extract_root: data/raw/status2
+update_configs:
+  - status2/configs/train.yaml
+  - status2/configs/train_t2_only.yaml
+  - status2/configs/ref_watercolor.yaml
+  - status2/configs/ref_comic.yaml
+  - status2/configs/ref_clipart.yaml
+  - status2/configs/ref_voc.yaml
+tasks:
+  - name: watercolor_1_3
+    aliases: [watercolor_1_3.zip, task_5.zip]
+    class_indices: [0, 1, 2]
+  - name: comic_4_6
+    aliases: [comic_4_6.zip, task_8.zip]
+    class_indices: [3, 4, 5]
+  - name: clipart_7_13
+    aliases: [clipart_7_13.zip, task_4.zip]
+    class_indices: [6, 7, 8, 9, 10, 11, 12]
+  - name: voc_14_20
+    aliases: [voc_14_20.zip, task_2.zip]
+    class_indices: [13, 14, 15, 16, 17, 18, 19]
+  - name: watercolor_4_6
+    aliases: [watercolor_4_6.zip, task_6.zip]
+    class_indices: [3, 4, 5]
+  - name: comic_1_3
+    aliases: [comic_1_3.zip, task_7.zip]
+    class_indices: [0, 1, 2]
+  - name: clipart_1_6
+    aliases: [clipart_1_6.zip, task_3.zip]
+    class_indices: [0, 1, 2, 3, 4, 5]
+  - name: voc_1_13
+    aliases: [voc_1_13.zip, task_1.zip]
+    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]

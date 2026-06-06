@@ -1,0 +1,28 @@
+[
+  {
+    "task_index": 1,
+    "task": "daytime_sunny_5_7",
+    "data": "/home/lenovo/gaoyingying/tasks/task_2/data.yaml",
+    "prepared_data": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/ref_daytime/prepared_data/daytime_sunny_5_7/data.yaml",
+    "label_space": "local",
+    "class_indices": [
+      4,
+      5,
+      6
+    ],
+    "active_class_indices": [
+      4,
+      5,
+      6
+    ],
+    "learned_indices": [
+      4,
+      5,
+      6
+    ],
+    "stage_initial_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/ref_daytime/task_1_daytime_sunny_5_7_init_3cls.pt",
+    "trained_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/ref_daytime/runs/daytime_sunny_5_7/weights/best.pt",
+    "merged_checkpoint": "/home/lenovo/gaoyingying/dual-incremental-detection-master/status3/output/ref_daytime/task_1_daytime_sunny_5_7_best.pt",
+    "is_first_task": true
+  }
+]
