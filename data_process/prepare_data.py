@@ -15,6 +15,29 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+VOC_CLASS_NAMES = [
+    "bicycle",
+    "bird",
+    "car",
+    "cat",
+    "dog",
+    "person",
+    "aeroplane",
+    "boat",
+    "bottle",
+    "bus",
+    "chair",
+    "cow",
+    "diningtable",
+    "horse",
+    "motorbike",
+    "pottedplant",
+    "sheep",
+    "sofa",
+    "train",
+    "tvmonitor",
+]
+VOC_TRAIN_SPLITS = ["train2012", "train2007", "val2012", "val2007"]
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
@@ -317,16 +340,285 @@ def print_plan_slice_summary(name: str, root: Path, train_images: int, train_ins
     )
 
 
+def extract_many_zips(zip_root: Path, zip_names: list[str], target_root: Path) -> None:
+    target_root.mkdir(parents=True, exist_ok=True)
+    for name in zip_names:
+        zip_path = zip_root / name
+        if not zip_path.exists():
+            raise FileNotFoundError(f"Missing zip: {zip_path}")
+        marker = target_root / f".{zip_path.stem}.extract_ok"
+        if marker.exists():
+            continue
+        print(f"[extract] {zip_path} -> {target_root}")
+        skipped: list[str] = []
+        with zipfile.ZipFile(zip_path) as archive:
+            for member in archive.infolist():
+                try:
+                    archive.extract(member, target_root)
+                except zipfile.BadZipFile:
+                    skipped.append(member.filename)
+                    target = target_root / member.filename
+                    if target.exists() and target.is_file():
+                        target.unlink()
+                except RuntimeError as exc:
+                    skipped.append(f"{member.filename} ({exc})")
+                    target = target_root / member.filename
+                    if target.exists() and target.is_file():
+                        target.unlink()
+        if skipped:
+            skipped_path = target_root / f".{zip_path.stem}.skipped.txt"
+            skipped_path.write_text("\n".join(skipped) + "\n", encoding="utf-8")
+            print(f"[extract] skipped {len(skipped)} bad file(s); list saved to {skipped_path}")
+        marker.write_text("ok\n", encoding="utf-8")
+
+
+def prepare_voc_full(zip_root: Path, voc_raw_root: Path, voc_root: Path, voc_zips: list[str] | None = None) -> None:
+    zips = voc_zips or [
+        "VOCtrainval_06-Nov-2007.zip",
+        "VOCtest_06-Nov-2007.zip",
+        "VOCtrainval_11-May-2012.zip",
+    ]
+    extract_many_zips(zip_root, [str(item) for item in zips], voc_raw_root)
+    voc_root.mkdir(parents=True, exist_ok=True)
+
+
+def prepare_clipart_full(zip_root: Path, clipart_root: Path, clipart_zip: str = "clipart.zip") -> None:
+    extract_many_zips(zip_root, [clipart_zip], clipart_root)
+
+
+def find_voc_year_root(voc_raw_root: Path, year: str) -> Path:
+    candidates = [
+        voc_raw_root / "VOCdevkit" / f"VOC{year}",
+        voc_raw_root / f"VOC{year}",
+    ]
+    candidates.extend(path for path in voc_raw_root.rglob(f"VOC{year}") if path.is_dir())
+    for candidate in candidates:
+        if (candidate / "Annotations").exists() and (candidate / "JPEGImages").exists():
+            return candidate
+    raise FileNotFoundError(f"Could not find VOC{year} under {voc_raw_root}")
+
+
+def parse_voc_split(split: str) -> tuple[str, str]:
+    for year in ("2007", "2012"):
+        if split.endswith(year):
+            return year, split[: -len(year)]
+    return "2007", split
+
+
+def add_voc_slice_records(
+    voc_root: Path,
+    slice_root: Path,
+    source_split: str,
+    target_split: str,
+    class_indices: list[int],
+) -> tuple[int, int]:
+    year, split_name = parse_voc_split(source_split)
+    year_root = find_voc_year_root(voc_root.parent / "VOC_raw", year)
+    split_file = year_root / "ImageSets" / "Main" / f"{split_name}.txt"
+    if not split_file.exists():
+        raise FileNotFoundError(f"Missing VOC split file: {split_file}")
+
+    local_index = {global_id: local_id for local_id, global_id in enumerate(class_indices)}
+    keep = set(class_indices)
+    image_count = 0
+    instance_count = 0
+    for image_id in [line.strip() for line in split_file.read_text(encoding="utf-8").splitlines() if line.strip()]:
+        xml_path = year_root / "Annotations" / f"{image_id}.xml"
+        image_path = year_root / "JPEGImages" / f"{image_id}.jpg"
+        if not xml_path.exists() or not image_path.exists():
+            continue
+        root = ET.parse(xml_path).getroot()
+        size = root.find("size")
+        width = int(size.findtext("width")) if size is not None else image_size(image_path)[0]
+        height = int(size.findtext("height")) if size is not None else image_size(image_path)[1]
+        lines: list[str] = []
+        for obj in root.iter("object"):
+            cls_name = obj.findtext("name")
+            difficult = int(obj.findtext("difficult", "0") or 0)
+            if difficult == 1 or cls_name not in VOC_CLASS_NAMES:
+                continue
+            global_id = VOC_CLASS_NAMES.index(cls_name)
+            if global_id not in keep:
+                continue
+            box = obj.find("bndbox")
+            xyxy = [float(box.findtext(tag)) for tag in ("xmin", "xmax", "ymin", "ymax")]
+            lines.append(" ".join([str(local_index[global_id]), *(f"{value:.6f}" for value in yolo_box(width, height, xyxy))]))
+        if not lines:
+            continue
+        dst_image = slice_root / "images" / target_split / image_path.name
+        dst_label = slice_root / "labels" / target_split / f"{image_path.stem}.txt"
+        link_or_copy(image_path, dst_image, copy_files=False)
+        dst_label.parent.mkdir(parents=True, exist_ok=True)
+        dst_label.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        image_count += 1
+        instance_count += len(lines)
+    return image_count, instance_count
+
+
+def find_clipart_dataset_root(clipart_root: Path) -> Path:
+    candidates = []
+    for yaml_path in clipart_root.rglob("data.yaml"):
+        root = yaml_path.parent
+        if (root / "images").exists() and (root / "labels").exists():
+            candidates.append(root)
+    if candidates:
+        return sorted(candidates, key=lambda p: len(p.parts))[0]
+    if (clipart_root / "images").exists() and (clipart_root / "labels").exists():
+        return clipart_root
+    raise FileNotFoundError(f"Could not find YOLO Clipart dataset under {clipart_root}")
+
+
+def find_clipart_voc_root(clipart_root: Path) -> Path:
+    candidates = []
+    for path in [clipart_root, *clipart_root.rglob("*")]:
+        if path.is_dir() and (path / "Annotations").exists() and (path / "JPEGImages").exists():
+            candidates.append(path)
+    if candidates:
+        return sorted(candidates, key=lambda p: len(p.parts))[0]
+    raise FileNotFoundError(f"Could not find VOC-style Clipart dataset under {clipart_root}")
+
+
+def split_file_candidates(root: Path, split: str) -> list[Path]:
+    return [
+        root / "ImageSets" / "Main" / f"{split}.txt",
+        root / "ImageSets" / f"{split}.txt",
+        root / f"{split}.txt",
+    ]
+
+
+def read_voc_image_ids(root: Path, split: str) -> list[str]:
+    for split_file in split_file_candidates(root, split):
+        if split_file.exists():
+            return [line.strip().split()[0] for line in split_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    raise FileNotFoundError(f"Missing split file for '{split}' under {root}")
+
+
+def find_image_by_id(root: Path, image_id: str) -> Path | None:
+    image_dir = root / "JPEGImages"
+    for suffix in (".jpg", ".jpeg", ".png", ".bmp", ".webp"):
+        candidate = image_dir / f"{image_id}{suffix}"
+        if candidate.exists():
+            return candidate
+    matches = list(image_dir.glob(f"{image_id}.*"))
+    return matches[0] if matches else None
+
+
+def add_voc_style_slice_records(
+    dataset_root: Path,
+    slice_root: Path,
+    source_split: str,
+    target_split: str,
+    class_indices: list[int],
+    class_names: list[str],
+) -> tuple[int, int]:
+    local_index = {global_id: local_id for local_id, global_id in enumerate(class_indices)}
+    keep = set(class_indices)
+    image_count = 0
+    instance_count = 0
+
+    for image_id in read_voc_image_ids(dataset_root, source_split):
+        xml_path = dataset_root / "Annotations" / f"{image_id}.xml"
+        image_path = find_image_by_id(dataset_root, image_id)
+        if not xml_path.exists() or image_path is None:
+            continue
+        root = ET.parse(xml_path).getroot()
+        size = root.find("size")
+        width = int(size.findtext("width")) if size is not None else image_size(image_path)[0]
+        height = int(size.findtext("height")) if size is not None else image_size(image_path)[1]
+        lines: list[str] = []
+        for obj in root.iter("object"):
+            cls_name = obj.findtext("name")
+            difficult = int(obj.findtext("difficult", "0") or 0)
+            if difficult == 1 or cls_name not in class_names:
+                continue
+            global_id = class_names.index(cls_name)
+            if global_id not in keep:
+                continue
+            box = obj.find("bndbox")
+            xyxy = [float(box.findtext(tag)) for tag in ("xmin", "xmax", "ymin", "ymax")]
+            lines.append(" ".join([str(local_index[global_id]), *(f"{value:.6f}" for value in yolo_box(width, height, xyxy))]))
+        if not lines:
+            continue
+        dst_image = slice_root / "images" / target_split / image_path.name
+        dst_label = slice_root / "labels" / target_split / f"{image_path.stem}.txt"
+        link_or_copy(image_path, dst_image, copy_files=False)
+        dst_label.parent.mkdir(parents=True, exist_ok=True)
+        dst_label.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        image_count += 1
+        instance_count += len(lines)
+    return image_count, instance_count
+
+
+def add_clipart_slice_records(
+    clipart_root: Path,
+    slice_root: Path,
+    source_split: str,
+    target_split: str,
+    class_indices: list[int],
+) -> tuple[int, int]:
+    try:
+        dataset_root = find_clipart_dataset_root(clipart_root)
+    except FileNotFoundError:
+        dataset_root = find_clipart_voc_root(clipart_root)
+        return add_voc_style_slice_records(
+            dataset_root,
+            slice_root,
+            source_split,
+            target_split,
+            class_indices,
+            VOC_CLASS_NAMES,
+        )
+    data_yaml = dataset_root / "data.yaml"
+    data_cfg = read_yaml(data_yaml) if data_yaml.exists() else {}
+    sources = resolve_split_paths(dataset_root, data_cfg, source_split)
+    if not sources:
+        sources = [dataset_root / "images" / source_split]
+
+    local_index = {global_id: local_id for local_id, global_id in enumerate(class_indices)}
+    keep = set(class_indices)
+    image_count = 0
+    instance_count = 0
+    for source in sources:
+        for image_path in iter_images(source):
+            src_label = infer_label_path(image_path)
+            if not src_label.exists():
+                continue
+            lines: list[str] = []
+            for line in src_label.read_text(encoding="utf-8").splitlines():
+                parts = line.strip().split()
+                if not parts:
+                    continue
+                global_id = int(float(parts[0]))
+                if global_id not in keep:
+                    continue
+                parts[0] = str(local_index[global_id])
+                lines.append(" ".join(parts))
+            if not lines:
+                continue
+            dst_image = slice_root / "images" / target_split / image_path.name
+            dst_label = slice_root / "labels" / target_split / f"{image_path.stem}.txt"
+            link_or_copy(image_path, dst_image, copy_files=False)
+            dst_label.parent.mkdir(parents=True, exist_ok=True)
+            dst_label.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            image_count += 1
+            instance_count += len(lines)
+    return image_count, instance_count
+
+
+def write_slice_yaml(path: Path, root: Path, class_indices: list[int]) -> None:
+    names = {local_id: VOC_CLASS_NAMES[global_id] for local_id, global_id in enumerate(class_indices)}
+    write_dataset_yaml(path, root, names, class_indices)
+
+
+def print_dir_summary(path: Path) -> None:
+    train_images = len(list((path / "images" / "train").glob("*"))) if (path / "images" / "train").exists() else 0
+    val_images = len(list((path / "images" / "val").glob("*"))) if (path / "images" / "val").exists() else 0
+    train_labels = len(list((path / "labels" / "train").glob("*.txt"))) if (path / "labels" / "train").exists() else 0
+    val_labels = len(list((path / "labels" / "val").glob("*.txt"))) if (path / "labels" / "val").exists() else 0
+    print(f"[summary] {path}: train_images={train_images} val_images={val_images} train_labels={train_labels} val_labels={val_labels}")
+
+
 def prepare_voc_clipart_plan(plan: dict[str, Any]) -> None:
-    from scripts.prepare_server_status1_slices import (
-        add_clipart_slice_records,
-        add_voc_slice_records,
-        print_dir_summary,
-        prepare_clipart_full,
-        prepare_voc_full,
-        VOC_TRAIN_SPLITS,
-        write_slice_yaml,
-    )
 
     data_root = project_path(plan.get("data_root", "data"))
     zip_root = project_path(plan.get("zip_root", data_root / "downloads"))

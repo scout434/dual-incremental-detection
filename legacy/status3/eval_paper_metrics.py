@@ -114,7 +114,7 @@ def iter_images(source: Path) -> list[tuple[Path, Path]]:
     """Return image path and relative path for a directory or txt image list."""
     if source.is_dir():
         images = [path for path in source.rglob("*") if path.suffix.lower() in IMAGE_SUFFIXES]
-        return [(path.resolve(), path.relative_to(source)) for path in sorted(images)]
+        return [(path, path.relative_to(source)) for path in sorted(images)]
     if source.is_file():
         records = []
         for index, line in enumerate(source.read_text(encoding="utf-8").splitlines()):
@@ -124,7 +124,7 @@ def iter_images(source: Path) -> list[tuple[Path, Path]]:
             image_path = Path(raw)
             if not image_path.is_absolute():
                 image_path = source.parent / image_path
-            records.append((image_path.resolve(), Path(f"{index:08d}_{image_path.name}")))
+            records.append((image_path, Path(f"{index:08d}_{image_path.name}")))
         return records
     return []
 
