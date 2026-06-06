@@ -3,10 +3,10 @@ zip_root: data/downloads
 data_root: data/status3
 class_names: [bike, bus, car, motor, person, rider, truck]
 update_configs:
-  - status3/configs/train.yaml
-  - status3/configs/train_t2_only.yaml
-  - status3/configs/ref_daytime.yaml
-  - status3/configs/ref_night.yaml
+  - experiments/status3/train.yaml
+  - experiments/status3/train_t2_only.yaml
+  - experiments/status3/ref_daytime.yaml
+  - experiments/status3/ref_night.yaml
 
 daytime_sunny_zips:
   daytime_sunny_1_4:

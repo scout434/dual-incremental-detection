@@ -1,0 +1,71 @@
+﻿experiment:
+  # 璁烘枃 Diverse Weather Two Phase 涓诲疄楠岋細
+  # Daytime Sunny [1:4] -> Night Sunny [5:7]
+  name: status3_weather_2phase_duet_yolo11n
+  output_dir: output/status3/t2_only
+  seed: 42
+
+resume:
+  start_task: 2
+  previous_checkpoint: output/status3/main/task_1_daytime_sunny_1_4_best.pt
+
+detector:
+  base_weights: yolo11n.pt
+  model_yaml: yolo11n.yaml
+  # Diverse Weather 涓ら樁娈靛崗璁竴鍏?7 涓被鍒€?
+  total_classes: 7
+  # 濡傛灉浣犵煡閬撶湡瀹炵被鍒悕锛屽彲浠ユ妸 class_1...class_7 鏀规垚鐪熷疄鍚嶅瓧锛?
+  # 涓嬫爣椤哄簭蹇呴』鍜?class_indices 浠ュ強鏍囩鍏ㄥ眬缂栧彿涓€鑷淬€?
+  names:
+    0: class_1
+    1: class_2
+    2: class_3
+    3: class_4
+    4: class_5
+    5: class_6
+    6: class_7
+
+training:
+  # 璁烘枃琛ュ厖鏉愭枡锛?00 epochs銆? warmup銆乥atch 64銆丄damW銆?
+  epochs: 100
+  warmup_epochs: 5
+  imgsz: 640
+  batch: 64
+  workers: 0
+  device: 0
+  optimizer: AdamW
+  cos_lr: true
+  lr0: 0.01
+  lrf: 0.01
+  freeze: 0
+  weight_decay_first: 0.0005
+  weight_decay_incremental: 0.001
+
+duet:
+  enabled: true
+  use_duet_module: true
+  gamma: 0.1
+  alpha_base: 0.5
+  distill_weight: 0.01
+  dc_weight: 0.01
+  distill_temperature: 2.0
+  shared_key_exclude:
+    - model.23
+  verbose_merge: false
+
+tasks:
+  # T1锛欴aytime Sunny [1:4]
+  # TODO锛氭妸 data 鏀规垚浣犳湇鍔″櫒涓?Daytime Sunny 1-4 鍒囩墖鐨勭湡瀹?data.yaml銆?
+  - name: daytime_sunny_1_4
+    data: data/status3/daytime_sunny_1_4/data.yaml
+    class_indices: [0, 1, 2, 3]
+    labels_are_global: false
+
+  # T2锛歂ight Sunny [5:7]
+  # TODO锛氭妸 data 鏀规垚浣犳湇鍔″櫒涓?Night Sunny 5-7 鍒囩墖鐨勭湡瀹?data.yaml銆?
+  - name: night_sunny_5_7
+    data: data/status3/night_sunny_5_7/data.yaml
+    class_indices: [4, 5, 6]
+    labels_are_global: false
+
+

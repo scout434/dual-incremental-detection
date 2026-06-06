@@ -1,15 +1,8 @@
-# DuET Reproduction: Dual Incremental Object Detection
+# DuET Dual Incremental Object Detection Reproduction
 
 本项目用于复现 ICCV 2025 论文 **Dual Incremental Object Detection via Exemplar-Free Task Arithmetic** 的核心实验流程。
 
-实现目标：
-
-- 使用 PyTorch + Ultralytics YOLO 作为检测器底座。
-- 支持类增量、域增量和双重增量目标检测的实验组织。
-- 实现 DuET 的任务向量合并、方向一致性损失、动态蒸馏损失和 RAI 指标。
-- 提供 Pascal Series / Diverse Weather Series 风格的数据划分脚本。
-
-> 说明：论文官方实现未随论文公开。本项目是课程复现版本，重点复现论文核心思想和可验证实验流程，而不是逐行复刻作者私有代码。
+当前代码已整理为更接近深度学习算法库的结构：旧版 `status1/`、`status3/` 只保留配置和说明，实际训练、评估入口统一放在 `tools/`，旧脚本保存在 `legacy/` 以保证已有逻辑可追溯。
 
 ## 1. 环境
 
@@ -20,116 +13,159 @@ conda env create -f environment.yml
 conda activate duet-repro
 ```
 
-如果已有 PyTorch 环境：
+如果已经有合适的 PyTorch 环境：
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-## 2. 项目结构
+## 2. 当前目录结构
 
 ```text
-configs/                         实验配置
-duet_repro/                      DuET 核心代码
-  core/task_vectors.py           任务向量计算与模型合并
-  core/losses.py                 DC loss 与动态蒸馏损失
-  core/metrics.py                RI/GI/RAI 指标
-  data/make_yolo_subsets.py      YOLO 数据集过滤与任务划分
-scripts/                         运行脚本
-train_ultralytics_duet.py        增量训练与 DuET 合并入口
-eval_rai.py                      计算 RAI 指标
+data/                 数据目录，不参与代码整理
+data_process/         数据预处理相关内容
+docs/                 论文、记录或补充文档
+duet_repro/           复现项目公共代码
+experiments/          标准化实验配置目录
+legacy/               从 status1/status3 移出的旧训练与评估脚本
+output/               统一实验输出目录
+status1/              status1 配置和说明
+status3/              status3 配置和说明
+tools/                统一命令行入口
 ```
 
-## 3. 数据准备
-
-论文中 Pascal Series 使用 Pascal VOC 与若干风格域数据，Diverse Weather Series 使用不同天气域数据。
-
-为了课程复现，建议先从 Pascal VOC 真实数据开始。自动下载并转换：
-
-```powershell
-python -m duet_repro.data.prepare_voc_duet --root E:/project/Incremental_Learning/data/voc_duet --copy-images
-```
-
-这会下载 VOC2007 trainval/test 和 VOC2012 trainval，并生成 4 个 5-class 类增量任务：
+根目录只保留项目级文件、环境文件和基础权重：
 
 ```text
-task_1: aeroplane, bicycle, bird, boat, bottle
-task_2: bus, car, cat, chair, cow
-task_3: diningtable, dog, horse, motorbike, person
-task_4: pottedplant, sheep, sofa, train, tvmonitor
+README.md
+environment.yml
+requirements.txt
+yolo11n.pt
 ```
 
-然后运行真实 VOC 实验：
+## 3. 统一调用方式
+
+### Status1 主实验
 
 ```powershell
-python train_ultralytics_duet.py --config configs/voc_real_yolo.yaml
+python tools\train.py --scenario status1 --config experiments\status1\train.yaml
+python tools\train.py --scenario status1 --config experiments\status1\ref_voc.yaml
+python tools\train.py --scenario status1 --config experiments\status1\ref_clipart.yaml
+python tools\evaluate.py --scenario status1 --config experiments\status1\eval.yaml
 ```
 
-如果想使用自己的 YOLO 格式数据：
+只从 T2 继续训练：
 
-1. 准备 YOLO 格式数据集。
-2. 每个图像对应一个 `.txt` 标签文件。
-3. 数据集目录示例：
+```powershell
+python tools\train.py --scenario status1 --config experiments\status1\train_t2_only.yaml
+```
+
+### Status3 主实验
+
+```powershell
+python tools\train.py --scenario status3 --config experiments\status3\train.yaml
+python tools\train.py --scenario status3 --config experiments\status3\ref_daytime.yaml
+python tools\train.py --scenario status3 --config experiments\status3\ref_night.yaml
+python tools\evaluate.py --scenario status3 --config experiments\status3\eval.yaml
+```
+
+只从 T2 继续训练：
+
+```powershell
+python tools\train.py --scenario status3 --config experiments\status3\train_t2_only.yaml
+```
+
+### Ablation
+
+生成或检查单个消融配置：
+
+```powershell
+python tools\run_ablation.py --scenario status1 --name 03_seqft_incremental_head_duet --materialize-only
+```
+
+运行单个消融：
+
+```powershell
+python tools\run_ablation.py --scenario status1 --name 03_seqft_incremental_head_duet
+```
+
+如果确实要按表格顺序跑完所有消融，再显式使用 `--all`：
+
+```powershell
+python tools\run_ablation.py --scenario status1 --all
+```
+
+当前统一消融入口只覆盖 `status1`。
+
+## 4. 输出目录
+
+所有训练和评估结果统一写入根目录 `output/`：
 
 ```text
-datasets/
-  pascal_yolo/
-    images/train/
-    images/val/
-    labels/train/
-    labels/val/
+output/status1/main
+output/status1/ref_voc
+output/status1/ref_clipart
+output/status3/main
+output/status3/t2_only
+output/status3/ref_daytime
+output/status3/ref_night
 ```
 
-使用过滤脚本生成每个增量任务的数据：
+## 5. 已有实验结果记录
 
-```powershell
-python -m duet_repro.data.make_yolo_subsets `
-  --src-root E:\datasets\pascal_yolo `
-  --dst-root E:\datasets\duet_pascal_tasks `
-  --splits train val `
-  --tasks "0,1,2,3,4|5,6,7,8,9|10,11,12,13,14|15,16,17,18,19" `
-  --copy-images
+### Status1
+
+主实验汇总：
+
+```text
+Avg RI = 86.88%
+Avg GI = 44.33%
+RAI    = 65.61%
 ```
 
-## 4. 训练
+分项：
 
-先修改 `configs/pascal_series_yolo.yaml` 中的数据路径，然后运行：
-
-```powershell
-python train_ultralytics_duet.py --config configs/pascal_series_yolo.yaml
+```text
+RI_VOC_1_10_after_T2      final=0.7200  reference=0.8288  ratio=86.88%
+GI_VOC_11_20_at_T2        final=0.1415  reference=0.7968  ratio=17.76%
+GI_Clipart_1_10_at_T2     final=0.2795  reference=0.3942  ratio=70.91%
 ```
 
-脚本会按任务顺序：
+Status1 消融记录：
 
-1. 训练当前任务模型。
-2. 构造旧任务向量和新任务向量。
-3. 对共享参数执行 DuET merge。
-4. 保存每个阶段的 merged checkpoint。
-
-## 5. 评估 RAI
-
-收集每个任务阶段在旧类/旧域和新类/新域上的 mAP 后，写入 JSON：
-
-```json
-{
-  "retention": [0.91, 0.88, 0.86],
-  "generalization": [0.72, 0.76, 0.79]
-}
+```text
+00_no_seqft                         未评估
+01_seqft                            Avg RI=0.12%   Avg GI=13.22%  RAI=6.67%
+02_seqft_incremental_head           Avg RI=21.02%  Avg GI=22.68%  RAI=21.85%
+03_seqft_incremental_head_duet      Avg RI=69.34%  Avg GI=29.83%  RAI=49.58%
+04_seqft_incremental_head_duet_distill Avg RI=88.62% Avg GI=41.69% RAI=65.15%
+05_full                             Avg RI=89.23%  Avg GI=43.38%  RAI=66.31%
 ```
 
-运行：
+### Status3
 
-```powershell
-python eval_rai.py --metrics outputs/pascal_metrics.json
+主实验汇总：
+
+```text
+Avg RI = 80.15%
+Avg GI = 38.15%
+RAI    = 59.15%
 ```
 
-## 6. 推荐复现路线
+分项：
 
-课程时间有限时，建议按下面路线推进：
+```text
+RI_DaytimeSunny_1_4_after_T2   final=0.3731  reference=0.4655  ratio=80.15%
+GI_DaytimeSunny_5_7_at_T2      final=0.0798  reference=0.5150  ratio=15.49%
+GI_NightSunny_1_4_at_T2        final=0.2802  reference=0.4608  ratio=60.80%
+```
 
-1. 先完成 Pascal VOC 的 4-task 类增量实验。
-2. 用 YOLO11n 或 YOLO11s 降低算力需求。
-3. 复现 baseline sequential fine-tuning。
-4. 加入 DuET task-vector merge。
-5. 对比 Avg RI、Avg GI、RAI。
-6. 如有余力，再加入 Diverse Weather 或跨域任务。
+最终模型在 T2 数据集上的测试：
+
+```text
+Final_NightSunny_5_7_on_T2     mAP50=0.0949  ratio=9.49%
+```
+
+## 6. 说明
+
+论文官方实现未随论文公开。本项目是课程复现版本，重点复现论文核心思想、实验组织和指标计算流程，而不是逐行复制作者私有代码。

@@ -1,0 +1,44 @@
+﻿manifest: output/status3/main/eval_manifest.json
+output: output/status3/main/metrics.json
+device: 0
+metric: map50
+split: val
+clamp_to_one: false
+
+checkpoint_aliases:
+  ref_daytime_sunny_5_7: output/status3/ref_daytime/task_1_daytime_sunny_5_7_best.pt
+  ref_night_sunny_1_4: output/status3/ref_night/task_1_night_sunny_1_4_best.pt
+
+retention:
+  - name: RI_DaytimeSunny_1_4_after_T2
+    numerator:
+      checkpoint: final
+      data: output/status3/main/prepared_data/daytime_sunny_1_4/data.yaml
+      global_class_indices: [0, 1, 2, 3]
+    denominator:
+      checkpoint: t1
+      data: output/status3/main/prepared_data/daytime_sunny_1_4/data.yaml
+      prepare_global_labels: false
+
+generalization:
+  - name: GI_DaytimeSunny_5_7_at_T2
+    numerator:
+      checkpoint: final
+      data: data/status3/daytime_sunny_5_7/data.yaml
+      global_class_indices: [4, 5, 6]
+    denominator:
+      checkpoint: ref_daytime_sunny_5_7
+      data: output/status3/ref_daytime/prepared_data/daytime_sunny_5_7/data.yaml
+      prepare_global_labels: false
+
+  - name: GI_NightSunny_1_4_at_T2
+    numerator:
+      checkpoint: final
+      data: data/status3/night_sunny_1_4/data.yaml
+      global_class_indices: [0, 1, 2, 3]
+    denominator:
+      checkpoint: ref_night_sunny_1_4
+      data: output/status3/ref_night/prepared_data/night_sunny_1_4/data.yaml
+      prepare_global_labels: false
+
+
