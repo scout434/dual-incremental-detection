@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import importlib.util
 import json
 import os
 import sys
@@ -13,10 +14,10 @@ import yaml
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
 
 
 BASE_T2_CONFIG = SCRIPT_DIR / "configs" / "train_t2_only.yaml"
@@ -44,6 +45,7 @@ ABLATIONS: dict[str, dict[str, Any]] = {
         "title": "Seq FT + Incremental Head",
         "seq_ft": True,
         "incremental_head": True,
+        "local_parallel_head": True,
         "duet_enabled": False,
         "distill_weight": 0.0,
         "dc_weight": 0.0,
@@ -96,6 +98,7 @@ def build_train_config(name: str) -> tuple[dict[str, Any], Path]:
     cfg["ablation"]["title"] = spec["title"]
     cfg["ablation"]["seq_ft"] = bool(spec["seq_ft"])
     cfg["ablation"]["incremental_head"] = bool(spec["incremental_head"])
+    cfg["ablation"]["local_parallel_head"] = bool(spec.get("local_parallel_head", False))
 
     cfg.setdefault("resume", {})
     cfg["resume"]["start_task"] = 2
@@ -112,6 +115,8 @@ def build_train_config(name: str) -> tuple[dict[str, Any], Path]:
     cfg["duet"]["distill_weight"] = float(spec["distill_weight"])
     cfg["duet"]["dc_weight"] = float(spec["dc_weight"])
     cfg["duet"]["shared_key_exclude"] = ["model.23"]
+    for task in cfg.get("tasks", []):
+        task["labels_are_global"] = "auto"
 
     train_cfg_path = SCRIPT_DIR / "configs" / "ablations" / f"{name}.yaml"
     return cfg, train_cfg_path
@@ -194,6 +199,7 @@ def materialize(name: str) -> tuple[Path, Path]:
             "switches": {
                 "seq_ft": value["seq_ft"],
                 "incremental_head": value["incremental_head"],
+                "local_parallel_head": value.get("local_parallel_head", False),
                 "duet_module": value["duet_enabled"],
                 "distill": value["distill_weight"] > 0,
                 "dc": value["dc_weight"] > 0,
@@ -203,6 +209,17 @@ def materialize(name: str) -> tuple[Path, Path]:
     }
     index_path.write_text(json.dumps(index_payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return train_cfg_path, eval_plan_path
+
+
+def load_status1_train_main():
+    """Load status1/train_duet.py explicitly, avoiding the project-root train_duet.py."""
+    module_path = SCRIPT_DIR / "train_duet.py"
+    spec = importlib.util.spec_from_file_location("status1_train_duet", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot import status1 train_duet.py from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.main
 
 
 def main() -> None:
@@ -224,10 +241,22 @@ def main() -> None:
         if args.materialize_only:
             continue
 
-        from train_duet import main as train_main
-
         os.chdir(PROJECT_ROOT)
-        train_main(train_cfg_path)
+        train_main = load_status1_train_main()
+        train_cfg = load_yaml(train_cfg_path)
+        resume_cfg = train_cfg.get("resume", {})
+        print(
+            "[ablation] force T2-only: start_task={0}, previous_checkpoint={1}".format(
+                int(resume_cfg.get("start_task", 2)),
+                resume_cfg.get("previous_checkpoint"),
+            )
+        )
+        print("[ablation] T1 will be skipped/reused; only T2 is trained in this run.")
+        train_main(
+            train_cfg_path,
+            start_task=int(resume_cfg.get("start_task", 2)),
+            previous_checkpoint=resume_cfg.get("previous_checkpoint"),
+        )
 
 
 if __name__ == "__main__":

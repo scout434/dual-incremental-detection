@@ -58,7 +58,7 @@ duet:
   verbose_merge: false
 tasks:
 - name: voc_1_10
-  data: data/pascal_voc_yolo/voc_1_10/data.yaml
+  data: data/status1/pascal_voc_yolo/voc_1_10/data.yaml
   class_indices:
   - 0
   - 1
@@ -70,9 +70,9 @@ tasks:
   - 7
   - 8
   - 9
-  labels_are_global: false
+  labels_are_global: auto
 - name: clipart_11_20
-  data: data/clipart_paper_yolo/clipart_11_20/data.yaml
+  data: data/status1/clipart_paper_yolo/clipart_11_20/data.yaml
   class_indices:
   - 10
   - 11
@@ -84,7 +84,7 @@ tasks:
   - 17
   - 18
   - 19
-  labels_are_global: false
+  labels_are_global: auto
 ablation:
   name: 00_no_seqft
   title: No Seq FT / No Incremental Head / No DuET / No losses

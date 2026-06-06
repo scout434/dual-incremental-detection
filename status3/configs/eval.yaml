@@ -6,6 +6,11 @@ split: val
 clamp_to_one: false
 
 checkpoint_aliases:
+  final: status3/output/t2_only/task_2_night_sunny_5_7_duet.pt
+  latest: status3/output/t2_only/task_2_night_sunny_5_7_duet.pt
+  t1: status3/output/main/task_1_daytime_sunny_1_4_best.pt
+  task_1: status3/output/main/task_1_daytime_sunny_1_4_best.pt
+  daytime_sunny_1_4: status3/output/main/task_1_daytime_sunny_1_4_best.pt
   ref_daytime_sunny_5_7: status3/output/ref_daytime/task_1_daytime_sunny_5_7_best.pt
   ref_night_sunny_1_4: status3/output/ref_night/task_1_night_sunny_1_4_best.pt
 
@@ -13,30 +18,30 @@ retention:
   - name: RI_DaytimeSunny_1_4_after_T2
     numerator:
       checkpoint: final
-      data: status3/output/main/prepared_data/daytime_sunny_1_4/data.yaml
+      data: data/status3/daytime_sunny_1_4/data.yaml
       global_class_indices: [0, 1, 2, 3]
     denominator:
       checkpoint: t1
-      data: status3/output/main/prepared_data/daytime_sunny_1_4/data.yaml
+      data: data/status3/daytime_sunny_1_4/data.yaml
       prepare_global_labels: false
 
 generalization:
   - name: GI_DaytimeSunny_5_7_at_T2
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status3/daytime_sunny_5_7/data.yaml
+      data: data/status3/daytime_sunny_5_7/data.yaml
       global_class_indices: [4, 5, 6]
     denominator:
       checkpoint: ref_daytime_sunny_5_7
-      data: status3/output/ref_daytime/prepared_data/daytime_sunny_5_7/data.yaml
+      data: data/status3/daytime_sunny_5_7/data.yaml
       prepare_global_labels: false
 
   - name: GI_NightSunny_1_4_at_T2
     numerator:
       checkpoint: final
-      data: /root/autodl-tmp/test_tasks/status3/night_sunny_1_4/data.yaml
+      data: data/status3/night_sunny_1_4/data.yaml
       global_class_indices: [0, 1, 2, 3]
     denominator:
       checkpoint: ref_night_sunny_1_4
-      data: status3/output/ref_night/prepared_data/night_sunny_1_4/data.yaml
+      data: data/status3/night_sunny_1_4/data.yaml
       prepare_global_labels: false

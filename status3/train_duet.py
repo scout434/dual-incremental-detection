@@ -971,6 +971,22 @@ def merge_full_head_slices(
     return result
 
 
+def save_pre_duet_checkpoint(
+    trained_checkpoint: str | Path,
+    output_dir: Path,
+    *,
+    task_index: int,
+    task_name: str,
+) -> Path:
+    """Keep a top-level copy of the trained checkpoint before DuET merging."""
+    trained_checkpoint = Path(trained_checkpoint)
+    output_path = output_dir / f"task_{task_index}_{task_name}_pre_duet.pt"
+    if trained_checkpoint.resolve() != output_path.resolve():
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(trained_checkpoint, output_path)
+    return output_path
+
+
 def validate_paper_training_config(cfg: dict) -> None:
     """Reject configurations that violate the status1 paper-style cumulative-head protocol."""
     total_classes = int(cfg["detector"]["total_classes"])
@@ -1285,6 +1301,15 @@ def main(
             old_class_indices=learned_indices,
             active_class_indices=active_class_indices,
         )
+        pre_duet_ckpt = None
+        if task_index > 1 and duet_cfg.get("enabled", True):
+            pre_duet_ckpt = save_pre_duet_checkpoint(
+                trained_ckpt,
+                output_dir,
+                task_index=task_index,
+                task_name=task["name"],
+            )
+            print(f"【阶段 T{task_index}】DuET 融合前训练模型已保存: {pre_duet_ckpt}")
 
         if task_index == 1 or not duet_cfg.get("enabled", True):
             # 第一阶段没有旧任务，直接把训练后的模型作为 merged checkpoint。
@@ -1344,6 +1369,7 @@ def main(
                 "learned_indices": learned_indices,
                 "stage_initial_checkpoint": str(stage_initial_ckpt),
                 "trained_checkpoint": str(trained_ckpt),
+                "pre_duet_checkpoint": str(pre_duet_ckpt) if pre_duet_ckpt is not None else None,
                 "merged_checkpoint": str(merged_ckpt),
                 "is_first_task": task_index == 1,
             }

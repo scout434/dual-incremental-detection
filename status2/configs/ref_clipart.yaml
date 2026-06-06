@@ -4,7 +4,7 @@ experiment:
   seed: 42
 
 detector:
-  base_weights: /root/autodl-tmp/dual/dual_incremental_detection_master/status2/yolo11n.pt
+  base_weights: yolo11n.pt
   model_yaml: yolo11n.yaml
   total_classes: 20
   names:
@@ -54,6 +54,6 @@ duet:
 
 tasks:
   - name: clipart_1_6
-    data: /root/autodl-tmp/test_tasks_2/task_3/data.yaml
+    data: data/test_tasks_2/task_3/data.yaml
     class_indices: [0, 1, 2, 3, 4, 5]
     labels_are_global: local

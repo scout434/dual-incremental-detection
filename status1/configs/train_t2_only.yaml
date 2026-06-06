@@ -2,11 +2,9 @@ experiment:
   name: duet_pascal_t2_only
   output_dir: status1/output/t2_only
   seed: 42
-
 resume:
   start_task: 2
   previous_checkpoint: status1/output/main/task_1_voc_1_10_best.pt
-
 detector:
   base_weights: yolo11n.pt
   model_yaml: yolo11n.yaml
@@ -32,7 +30,6 @@ detector:
     17: sofa
     18: train
     19: tvmonitor
-
 training:
   epochs: 100
   warmup_epochs: 5
@@ -47,7 +44,6 @@ training:
   freeze: 0
   weight_decay_first: 0.0005
   weight_decay_incremental: 0.001
-
 duet:
   enabled: true
   use_duet_module: true
@@ -57,16 +53,34 @@ duet:
   dc_weight: 0.01
   distill_temperature: 2.0
   shared_key_exclude:
-    - model.23
+  - model.23
   verbose_merge: false
-
 tasks:
-  - name: voc_1_10
-    data: data/pascal_voc_yolo/voc_1_10/data.yaml
-    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    labels_are_global: false
-
-  - name: clipart_11_20
-    data: data/clipart_paper_yolo/clipart_11_20/data.yaml
-    class_indices: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-    labels_are_global: false
+- name: voc_1_10
+  data: data/status1/pascal_voc_yolo/voc_1_10/data.yaml
+  class_indices:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  labels_are_global: auto
+- name: clipart_11_20
+  data: data/status1/clipart_paper_yolo/clipart_11_20/data.yaml
+  class_indices:
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  labels_are_global: auto

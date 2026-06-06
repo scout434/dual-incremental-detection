@@ -2,20 +2,18 @@ experiment:
   name: ref_daytime_sunny_5_7
   output_dir: status3/output/ref_daytime
   seed: 42
-
 detector:
   base_weights: yolo11n.pt
   model_yaml: yolo11n.yaml
   total_classes: 7
   names:
-    0: class_1
-    1: class_2
-    2: class_3
-    3: class_4
-    4: class_5
-    5: class_6
-    6: class_7
-
+    0: bike
+    1: bus
+    2: car
+    3: motor
+    4: person
+    5: rider
+    6: truck
 training:
   epochs: 100
   warmup_epochs: 5
@@ -30,17 +28,18 @@ training:
   freeze: 0
   weight_decay_first: 0.0005
   weight_decay_incremental: 0.001
-
 duet:
   enabled: false
   use_duet_module: false
   distill_weight: 0.0
   dc_weight: 0.0
   shared_key_exclude:
-    - model.23
-
+  - model.23
 tasks:
-  - name: daytime_sunny_5_7
-    data: /root/autodl-tmp/test_tasks/status3/daytime_sunny_5_7/data.yaml
-    class_indices: [4, 5, 6]
-    labels_are_global: false
+- name: daytime_sunny_5_7
+  data: data/status3/daytime_sunny_5_7/data.yaml
+  class_indices:
+  - 4
+  - 5
+  - 6
+  labels_are_global: false

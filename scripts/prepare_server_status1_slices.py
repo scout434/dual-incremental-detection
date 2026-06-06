@@ -160,9 +160,9 @@ def extract_zip_once(zip_path: Path, dst: Path) -> None:
     marker.write_text("ok\n", encoding="utf-8")
 
 
-def prepare_voc_full(download_dir: Path, raw_root: Path, voc_root: Path) -> None:
+def prepare_voc_full(download_dir: Path, raw_root: Path, voc_root: Path, voc_zips: list[str] | None = None) -> None:
     print("\n========== VOC full -> YOLO ==========")
-    for name in VOC_ZIPS:
+    for name in (voc_zips or VOC_ZIPS):
         zip_path = download_dir / name
         require_file(zip_path)
         extract_zip_once(zip_path, raw_root)
@@ -304,9 +304,9 @@ def parse_clipart_xml(zf: zipfile.ZipFile, image_id: str) -> list[str]:
     return lines
 
 
-def prepare_clipart_full(download_dir: Path, clipart_root: Path) -> None:
+def prepare_clipart_full(download_dir: Path, clipart_root: Path, clipart_zip: str = "clipart.zip") -> None:
     print("\n========== Clipart full -> YOLO ==========")
-    zip_path = download_dir / "clipart.zip"
+    zip_path = download_dir / clipart_zip
     require_file(zip_path)
     reset_dir(clipart_root)
 

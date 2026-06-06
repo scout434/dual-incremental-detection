@@ -103,14 +103,24 @@ def infer_label_path(image_path: Path) -> Path:
 
 
 def link_or_copy_image(src: Path, dst: Path) -> None:
-    """Reuse image files with symlinks when possible, copy otherwise."""
+    """Reuse image files with links when possible, copy otherwise."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists() or dst.is_symlink():
         return
+    link_errors: list[OSError] = []
+    for link_fn in (os.symlink, os.link):
+        try:
+            link_fn(src, dst)
+            return
+        except OSError as exc:
+            link_errors.append(exc)
+            if dst.exists() or dst.is_symlink():
+                return
     try:
-        os.symlink(src, dst)
-    except OSError:
         shutil.copy2(src, dst)
+    except PermissionError as exc:
+        notes = "; ".join(f"{type(err).__name__}: {err}" for err in link_errors)
+        raise PermissionError(f"Cannot create eval image {dst} from {src}. Link attempts failed with: {notes}") from exc
 
 
 def remap_local_label_to_global(src: Path, dst: Path, global_indices: list[int]) -> None:

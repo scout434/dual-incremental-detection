@@ -2,7 +2,6 @@ experiment:
   name: ref_clipart_1_10
   output_dir: status1/output/ref_clipart
   seed: 42
-
 detector:
   base_weights: yolo11n.pt
   model_yaml: yolo11n.yaml
@@ -28,7 +27,6 @@ detector:
     17: sofa
     18: train
     19: tvmonitor
-
 training:
   epochs: 100
   warmup_epochs: 5
@@ -43,17 +41,25 @@ training:
   freeze: 0
   weight_decay_first: 0.0005
   weight_decay_incremental: 0.001
-
 duet:
   enabled: false
   use_duet_module: false
   distill_weight: 0.0
   dc_weight: 0.0
   shared_key_exclude:
-    - model.23
-
+  - model.23
 tasks:
-  - name: clipart_1_10
-    data: data/clipart_paper_yolo/clipart_1_10/data.yaml
-    class_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    labels_are_global: false
+- name: clipart_1_10
+  data: data/status1/clipart_paper_yolo/clipart_1_10/data.yaml
+  class_indices:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  labels_are_global: auto

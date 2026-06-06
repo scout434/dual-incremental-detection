@@ -148,6 +148,25 @@ def inject_incremental_head_checkpoint(
             total_classes=total_classes,
         )
         _set_detect_head(model, duet_head, detect_index)
+        old_names = getattr(old_models[0], "names", {})
+        new_names = getattr(new_models[0], "names", {})
+        names = {}
+        for local_idx, global_idx in enumerate([int(i) for i in old_class_indices]):
+            if isinstance(old_names, dict):
+                names[global_idx] = old_names.get(local_idx, old_names.get(global_idx, str(global_idx)))
+            else:
+                names[global_idx] = str(global_idx)
+        for local_idx, global_idx in enumerate([int(i) for i in new_class_indices]):
+            if isinstance(new_names, dict):
+                names[global_idx] = new_names.get(local_idx, new_names.get(global_idx, str(global_idx)))
+            else:
+                names[global_idx] = str(global_idx)
+        if names:
+            model.names = {idx: names.get(idx, str(idx)) for idx in range(int(total_classes))}
+        if hasattr(model, "yaml"):
+            model.yaml["nc"] = int(total_classes)
+        if hasattr(model, "nc"):
+            model.nc = int(total_classes)
         model.float()
         updated = True
 

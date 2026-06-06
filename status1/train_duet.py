@@ -43,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from duet_repro.core.duet_module import merge_state_dicts_with_duet_module
+from duet_repro.core.incremental_head import inject_incremental_head_checkpoint
 from duet_repro.core.task_vectors import (
     StateDict,
     inject_state_dict_into_checkpoint,
@@ -755,6 +756,41 @@ def save_stage_initial_checkpoint(
     return output_path
 
 
+def save_local_task_initial_checkpoint(
+    cfg: dict,
+    output_dir: Path,
+    *,
+    task_index: int,
+    task_name: str,
+    current_class_indices: Iterable[int],
+    previous_checkpoint: str | Path,
+) -> Path:
+    """Build a task-local 10-class checkpoint for the strict Incremental Head ablation."""
+    current_class_indices = [int(index) for index in current_class_indices]
+    model = build_class_head_model(cfg, current_class_indices)
+    previous_state = load_state_dict(previous_checkpoint)
+    current_state = model.model.state_dict()
+    loaded_shared = 0
+    skipped_head = 0
+    for key, value in list(current_state.items()):
+        if key.startswith("model.23."):
+            skipped_head += 1
+            continue
+        previous_value = previous_state.get(key)
+        if previous_value is not None and previous_value.shape == value.shape:
+            current_state[key] = previous_value.detach().clone().to(value.device, dtype=value.dtype)
+            loaded_shared += 1
+    model.model.load_state_dict(current_state, strict=False)
+    configure_active_names(model, cfg, current_class_indices)
+    output_path = output_dir / f"task_{task_index}_{task_name}_local_init_{len(current_class_indices)}cls.pt"
+    model.save(output_path)
+    print(
+        f"[Ablation 02] local T{task_index} init: loaded shared tensors={loaded_shared}, "
+        f"kept a fresh {len(current_class_indices)}-class Detect head, skipped head tensors={skipped_head}"
+    )
+    return output_path
+
+
 def train_one_task(
     weights: str | Path,
     task: dict,
@@ -1254,6 +1290,93 @@ def main(
         # class_indices 是当前任务类别在全局 20 类头中的通道位置。
         current_indices = [int(i) for i in task.get("class_indices", [])]
         active_class_indices = [*learned_indices, *current_indices]
+        use_local_parallel_head = bool(cfg.get("ablation", {}).get("local_parallel_head", False))
+        if task_index > 1 and use_local_parallel_head:
+            if old_ckpt is None:
+                raise ValueError("local_parallel_head requires a previous T1 checkpoint.")
+            prepared_data = prepare_global_task_data(
+                task,
+                cfg,
+                output_dir,
+                active_class_indices=current_indices,
+            )
+            current_indices = [int(i) for i in task.get("resolved_class_indices", current_indices)]
+            print("\n" + "=" * 72)
+            print(f"[Ablation 02] train an isolated local Detect head for T{task_index}: {task['name']}")
+            print(f"source data.yaml: {task['data']}")
+            print(f"local data.yaml : {prepared_data}")
+            print(f"local/global class indices: {current_indices}")
+            print("old T1 Detect head is not in the T2 training graph.")
+            print("=" * 72)
+
+            stage_initial_ckpt = save_local_task_initial_checkpoint(
+                cfg,
+                output_dir,
+                task_index=task_index,
+                task_name=task["name"],
+                current_class_indices=current_indices,
+                previous_checkpoint=old_ckpt,
+            )
+            trained_ckpt = train_one_task(
+                stage_initial_ckpt,
+                task,
+                cfg,
+                output_dir,
+                is_first=False,
+                teacher_ckpt=None,
+                prev_task_vector=None,
+                task_vector_history=[],
+                reference_state=reference_state,
+                old_class_indices=learned_indices,
+                active_class_indices=current_indices,
+            )
+
+            merged_ckpt = output_dir / f"task_{task_index}_{task['name']}_best.pt"
+            shared_state = load_state_dict(trained_ckpt)
+            inject_incremental_head_checkpoint(
+                template_checkpoint_path=trained_ckpt,
+                merged_shared_state=shared_state,
+                old_checkpoint_path=old_ckpt,
+                new_checkpoint_path=trained_ckpt,
+                output_path=merged_ckpt,
+                old_class_indices=learned_indices,
+                new_class_indices=current_indices,
+                total_classes=int(cfg["detector"]["total_classes"]),
+            )
+            print(
+                f"[Ablation 02] saved parallel-head checkpoint: old complete head {learned_indices} "
+                f"+ new complete head {current_indices} -> {merged_ckpt}"
+            )
+
+            learned_indices = sorted(set(learned_indices) | set(current_indices))
+            task_vector_history.append(task_vector(reference_state, shared_state, shared_key_exclude=shared_key_exclude))
+            old_ckpt = merged_ckpt
+            history.append(
+                {
+                    "task_index": task_index,
+                    "task": task["name"],
+                    "data": task["data"],
+                    "prepared_data": task.get("prepared_data"),
+                    "label_space": task.get("label_space"),
+                    "class_indices": current_indices,
+                    "active_class_indices": learned_indices.copy(),
+                    "learned_indices": learned_indices.copy(),
+                    "stage_initial_checkpoint": str(stage_initial_ckpt),
+                    "trained_checkpoint": str(trained_ckpt),
+                    "merged_checkpoint": str(merged_ckpt),
+                    "is_first_task": False,
+                    "local_parallel_head": True,
+                }
+            )
+            write_experiment_state(
+                output_dir,
+                cfg,
+                history,
+                reference_ckpt=reference_ckpt,
+                latest_ckpt=old_ckpt,
+            )
+            continue
+
         prepared_data = prepare_global_task_data(
             task,
             cfg,
@@ -1306,8 +1429,16 @@ def main(
             new_state = load_state_dict(trained_ckpt)
 
         if task_index == 1 or not duet_cfg.get("enabled", True):
-            # 第一阶段没有旧任务，直接把训练后的模型作为 merged checkpoint。
-            print(f"【阶段 T{task_index}】第一阶段无旧模型，跳过 DuET merge，直接保存 best checkpoint。")
+            # T1 has no old task. In ablations with DuET disabled, keep the
+            # normally fine-tuned cumulative head first; the optional
+            # Incremental Head splice below still runs for T2 when enabled.
+            if task_index == 1:
+                print(f"[T{task_index}] first task: save trained best checkpoint directly.")
+            else:
+                print(
+                    f"[T{task_index}] DuET Module disabled: keep the Seq-FT 20-class cumulative head "
+                    "as the base state before Incremental Head splice."
+                )
             merged_state = load_state_dict(trained_ckpt)
             merged_ckpt = output_dir / f"task_{task_index}_{task['name']}_best.pt"
         else:
@@ -1333,6 +1464,10 @@ def main(
         if task_index == 1:
             inject_state_dict_into_checkpoint(trained_ckpt, merged_state, merged_ckpt)
         elif use_incremental_head:
+            print(
+                f"[Ablation/Main] Incremental Head enabled: reuse T1 rows {learned_indices} "
+                f"and insert T2 rows {current_indices}; this is the same head-splice rule as the main run."
+            )
             merged_state = merge_full_head_slices(
                 merged_state,
                 old_state,
