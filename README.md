@@ -6,6 +6,41 @@
 
 ---
 
+## Unified Entry Points
+
+Use `tools/` as the recommended entrypoint for data preparation, training, evaluation, and status1 ablations. The existing `status1/`, `status2/`, and `status3/` scripts remain the runnable source of truth; the new tools only dispatch to them. The `data/` directory is unchanged.
+
+```powershell
+# data preparation
+python tools\prepare_data.py --scenario status1
+python tools\prepare_data.py --scenario status2
+python tools\prepare_data.py --scenario status3
+
+# training
+python tools\train.py --scenario status3 --config train.yaml
+python tools\train.py --scenario status3 --config train_t2_only.yaml --output-dir status3/output/main
+python tools\train.py --scenario status3 --config ref_daytime.yaml
+python tools\train.py --scenario status3 --config ref_night.yaml
+
+# evaluation
+python tools\evaluate.py --scenario status1 --plan eval.yaml
+python tools\evaluate.py --scenario status2 --plan eval.yaml
+python tools\evaluate.py --scenario status3 --plan eval.yaml
+
+# status1 ablation
+python tools\run_ablation.py --all --materialize-only
+python tools\run_ablation.py --name 05_full
+python tools\evaluate.py --scenario status1 --plan ablations/05_full_eval.yaml
+```
+
+Explicit legacy config paths are also supported:
+
+```powershell
+python tools\train.py --config status3\configs\train_t2_only.yaml --output-dir status3/output/main
+python tools\evaluate.py --plan status3\configs\eval.yaml
+python tools\prepare_data.py --plan data_process\configs\status3.yaml
+```
+
 ## 一、技术路线说明
 
 本项目复现的是 DuET 的核心思想：
@@ -187,8 +222,8 @@ class_id x_center y_center width height
 本项目提供统一的数据预处理入口。正常情况下，不需要修改 Python 代码，直接使用已经写好的 YAML 配置即可运行：
 
 ```powershell
-python data_process\prepare_data.py --plan data_process\configs\status1.yaml
-python data_process\prepare_data.py --plan data_process\configs\status3.yaml
+python tools\prepare_data.py --scenario status1
+python tools\prepare_data.py --scenario status3
 ```
 
 如果后期要换 zip 名、换数据目录、换任务划分，只需要修改对应的 YAML 文件：
@@ -339,20 +374,20 @@ T2-only：复用已经存在的 T1 checkpoint，跳过 T1，只训练 Clipart[11
 完整训练：
 
 ```powershell
-python status1\train_duet.py --config status1\configs\train.yaml
+python tools\train.py --scenario status1 --config train.yaml
 ```
 
 如果已经训练好 T1，只从 T2 开始：
 
 ```powershell
-python status1\train_duet.py --config status1\configs\train_t2_only.yaml
+python tools\train.py --scenario status1 --config train_t2_only.yaml
 ```
 
 训练 GI 分母参考模型：
 
 ```powershell
-python status1\train_duet.py --config status1\configs\ref_voc.yaml
-python status1\train_duet.py --config status1\configs\ref_clipart.yaml
+python tools\train.py --scenario status1 --config ref_voc.yaml
+python tools\train.py --scenario status1 --config ref_clipart.yaml
 ```
 
 主要输出：
@@ -387,22 +422,22 @@ T2-only：复用已经存在的 Watercolor[1:3] checkpoint，从 Comic[4:6] 开�
 完整训练：
 
 ```powershell
-python status2\train_duet.py --config status2\configs\train.yaml
+python tools\train.py --scenario status2 --config train.yaml
 ```
 
 如果已经训练好 T1，只从 T2 开始：
 
 ```powershell
-python status2\train_duet.py --config status2\configs\train_t2_only.yaml
+python tools\train.py --scenario status2 --config train_t2_only.yaml
 ```
 
 训练 GI 分母参考模型：
 
 ```powershell
-python status2\train_duet.py --config status2\configs\ref_watercolor.yaml
-python status2\train_duet.py --config status2\configs\ref_comic.yaml
-python status2\train_duet.py --config status2\configs\ref_clipart.yaml
-python status2\train_duet.py --config status2\configs\ref_voc.yaml
+python tools\train.py --scenario status2 --config ref_watercolor.yaml
+python tools\train.py --scenario status2 --config ref_comic.yaml
+python tools\train.py --scenario status2 --config ref_clipart.yaml
+python tools\train.py --scenario status2 --config ref_voc.yaml
 ```
 
 主要输出：
@@ -431,20 +466,20 @@ T2-only：复用已经存在的 Daytime Sunny[1:4] checkpoint，跳过 T1，只�
 完整训练：
 
 ```powershell
-python status3\train_duet.py --config status3\configs\train.yaml
+python tools\train.py --scenario status3 --config train.yaml
 ```
 
 如果已经训练好 T1，只从 T2 开始：
 
 ```powershell
-python status3\train_duet.py --config status3\configs\train_t2_only.yaml --output-dir status3/output/main
+python tools\train.py --scenario status3 --config train_t2_only.yaml --output-dir status3/output/main
 ```
 
 训练 GI 分母参考模型：
 
 ```powershell
-python status3\train_duet.py --config status3\configs\ref_daytime.yaml
-python status3\train_duet.py --config status3\configs\ref_night.yaml
+python tools\train.py --scenario status3 --config ref_daytime.yaml
+python tools\train.py --scenario status3 --config ref_night.yaml
 ```
 
 主要输出：
@@ -482,36 +517,36 @@ L_DC
 生成所有消融配置：
 
 ```powershell
-python status1\run_ablation.py --all --materialize-only
+python tools\run_ablation.py --all --materialize-only
 ```
 
 运行完整方法：
 
 ```powershell
-python status1\run_ablation.py --name 05_full
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\05_full_eval.yaml
+python tools\run_ablation.py --name 05_full
+python tools\evaluate.py --scenario status1 --plan ablations/05_full_eval.yaml
 ```
 
 单独运行每组消融：
 
 ```powershell
-python status1\run_ablation.py --name 00_no_seqft
-python status1\run_ablation.py --name 01_seqft
-python status1\run_ablation.py --name 02_seqft_incremental_head
-python status1\run_ablation.py --name 03_seqft_incremental_head_duet
-python status1\run_ablation.py --name 04_seqft_incremental_head_duet_distill
-python status1\run_ablation.py --name 05_full
+python tools\run_ablation.py --name 00_no_seqft
+python tools\run_ablation.py --name 01_seqft
+python tools\run_ablation.py --name 02_seqft_incremental_head
+python tools\run_ablation.py --name 03_seqft_incremental_head_duet
+python tools\run_ablation.py --name 04_seqft_incremental_head_duet_distill
+python tools\run_ablation.py --name 05_full
 ```
 
 评估对应消融：
 
 ```powershell
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\00_no_seqft_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\01_seqft_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\02_seqft_incremental_head_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\03_seqft_incremental_head_duet_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\04_seqft_incremental_head_duet_distill_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\05_full_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/00_no_seqft_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/01_seqft_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/02_seqft_incremental_head_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/03_seqft_incremental_head_duet_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/04_seqft_incremental_head_duet_distill_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/05_full_eval.yaml
 ```
 
 ---
@@ -521,19 +556,19 @@ python status1\eval_paper_metrics.py --plan status1\configs\ablations\05_full_ev
 ### 10.1 场景1评估
 
 ```powershell
-python status1\eval_paper_metrics.py --plan status1\configs\eval.yaml
+python tools\evaluate.py --scenario status1 --plan eval.yaml
 ```
 
 ### 10.2 场景2评估
 
 ```powershell
-python status2\eval_paper_metrics.py --plan status2\configs\eval.yaml
+python tools\evaluate.py --scenario status2 --plan eval.yaml
 ```
 
 ### 10.3 场景3评估
 
 ```powershell
-python status3\eval_paper_metrics.py --plan status3\configs\eval.yaml
+python tools\evaluate.py --scenario status3 --plan eval.yaml
 ```
 
 评估输出：
@@ -569,9 +604,9 @@ conda activate incremental_learning
 如果交付包中已经包含 `status*/output/` 下的训练权重，可以跳过训练，直接执行三组评估命令：
 
 ```powershell
-python status1\eval_paper_metrics.py --plan status1\configs\eval.yaml
-python status2\eval_paper_metrics.py --plan status2\configs\eval.yaml
-python status3\eval_paper_metrics.py --plan status3\configs\eval.yaml
+python tools\evaluate.py --scenario status1 --plan eval.yaml
+python tools\evaluate.py --scenario status2 --plan eval.yaml
+python tools\evaluate.py --scenario status3 --plan eval.yaml
 ```
 
 评估完成后检查以下文件是否生成或更新：
@@ -600,16 +635,16 @@ rai_percent
 如果需要从训练开始完整复现，依次执行：
 
 ```powershell
-python status1\train_duet.py --config status1\configs\train.yaml
-python status1\train_duet.py --config status1\configs\ref_voc.yaml
-python status1\train_duet.py --config status1\configs\ref_clipart.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\eval.yaml
+python tools\train.py --scenario status1 --config train.yaml
+python tools\train.py --scenario status1 --config ref_voc.yaml
+python tools\train.py --scenario status1 --config ref_clipart.yaml
+python tools\evaluate.py --scenario status1 --plan eval.yaml
 ```
 
 如果已经有主模型和参考模型权重，只需要执行最后一条评估命令：
 
 ```powershell
-python status1\eval_paper_metrics.py --plan status1\configs\eval.yaml
+python tools\evaluate.py --scenario status1 --plan eval.yaml
 ```
 
 关键输出：
@@ -627,18 +662,18 @@ status1/output/main/metrics.json
 如果需要从训练开始完整复现，依次执行：
 
 ```powershell
-python status2\train_duet.py --config status2\configs\train.yaml
-python status2\train_duet.py --config status2\configs\ref_watercolor.yaml
-python status2\train_duet.py --config status2\configs\ref_comic.yaml
-python status2\train_duet.py --config status2\configs\ref_clipart.yaml
-python status2\train_duet.py --config status2\configs\ref_voc.yaml
-python status2\eval_paper_metrics.py --plan status2\configs\eval.yaml
+python tools\train.py --scenario status2 --config train.yaml
+python tools\train.py --scenario status2 --config ref_watercolor.yaml
+python tools\train.py --scenario status2 --config ref_comic.yaml
+python tools\train.py --scenario status2 --config ref_clipart.yaml
+python tools\train.py --scenario status2 --config ref_voc.yaml
+python tools\evaluate.py --scenario status2 --plan eval.yaml
 ```
 
 如果已经有主模型和参考模型权重，只需要执行最后一条评估命令：
 
 ```powershell
-python status2\eval_paper_metrics.py --plan status2\configs\eval.yaml
+python tools\evaluate.py --scenario status2 --plan eval.yaml
 ```
 
 关键输出：
@@ -656,16 +691,16 @@ status2/output/main/metrics.json
 如果需要从训练开始完整复现，依次执行：
 
 ```powershell
-python status3\train_duet.py --config status3\configs\train.yaml
-python status3\train_duet.py --config status3\configs\ref_daytime.yaml
-python status3\train_duet.py --config status3\configs\ref_night.yaml
-python status3\eval_paper_metrics.py --plan status3\configs\eval.yaml
+python tools\train.py --scenario status3 --config train.yaml
+python tools\train.py --scenario status3 --config ref_daytime.yaml
+python tools\train.py --scenario status3 --config ref_night.yaml
+python tools\evaluate.py --scenario status3 --plan eval.yaml
 ```
 
 如果已经有主模型和参考模型权重，只需要执行最后一条评估命令：
 
 ```powershell
-python status3\eval_paper_metrics.py --plan status3\configs\eval.yaml
+python tools\evaluate.py --scenario status3 --plan eval.yaml
 ```
 
 关键输出：
@@ -683,29 +718,29 @@ status3/output/main/metrics.json
 消融实验只在 `status1` 场景下执行。若需要先生成所有消融配置：
 
 ```powershell
-python status1\run_ablation.py --all --materialize-only
+python tools\run_ablation.py --all --materialize-only
 ```
 
 单独运行各组消融训练：
 
 ```powershell
-python status1\run_ablation.py --name 00_no_seqft
-python status1\run_ablation.py --name 01_seqft
-python status1\run_ablation.py --name 02_seqft_incremental_head
-python status1\run_ablation.py --name 03_seqft_incremental_head_duet
-python status1\run_ablation.py --name 04_seqft_incremental_head_duet_distill
-python status1\run_ablation.py --name 05_full
+python tools\run_ablation.py --name 00_no_seqft
+python tools\run_ablation.py --name 01_seqft
+python tools\run_ablation.py --name 02_seqft_incremental_head
+python tools\run_ablation.py --name 03_seqft_incremental_head_duet
+python tools\run_ablation.py --name 04_seqft_incremental_head_duet_distill
+python tools\run_ablation.py --name 05_full
 ```
 
 如果消融权重已经存在，可以直接执行评估：
 
 ```powershell
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\00_no_seqft_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\01_seqft_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\02_seqft_incremental_head_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\03_seqft_incremental_head_duet_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\04_seqft_incremental_head_duet_distill_eval.yaml
-python status1\eval_paper_metrics.py --plan status1\configs\ablations\05_full_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/00_no_seqft_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/01_seqft_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/02_seqft_incremental_head_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/03_seqft_incremental_head_duet_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/04_seqft_incremental_head_duet_distill_eval.yaml
+python tools\evaluate.py --scenario status1 --plan ablations/05_full_eval.yaml
 ```
 
 每组消融的评估结果位于：
@@ -779,7 +814,7 @@ runs/<task_name>/weights/best.pt
    如果希望续跑结果仍写入主目录，应使用：
 
    ```powershell
-   python status3\train_duet.py --config status3\configs\train_t2_only.yaml --output-dir status3/output/main
+   python tools\train.py --scenario status3 --config train_t2_only.yaml --output-dir status3/output/main
    ```
 
 3. **确认 `class_indices` 与标签空间一致。**  

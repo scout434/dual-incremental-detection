@@ -905,71 +905,77 @@ def merge_full_head_slices(
     current_indices: Iterable[int],
 ) -> StateDict:
     """
-    在全量 20 类检测头里保留各任务学到的分类输出通道切片。
+    Physically concatenate task-specific YOLO class-output heads.
 
-    YOLO11 的 cv3.*.2 是类别专属输出层，等价于论文 Incremental Head
-    中需要按任务拼接/保留的 task-specific classification head。其余 head
-    中间层可以随 shared_key_exclude 配置参与 DuET 融合，避免整头被 T2 覆盖。
+    YOLO11's cv3.*.2.weight and cv3.*.2.bias tensors use dimension 0 as the
+    class/channel dimension. The cumulative class head is therefore built as:
 
-    learned_indices: 之前任务已经学过的全局类别下标。
-    current_indices: 当前任务正在学习的全局类别下标。
+        previous task head rows + current task head rows
+
+    Other Detect-head tensors are not class-row tensors, so they keep the
+    already merged/trained values from merged_state.
     """
     learned = sorted({int(i) for i in learned_indices})
     current = sorted({int(i) for i in current_indices})
     overlap = sorted(set(learned) & set(current))
     if overlap:
         raise ValueError(f"Incremental classes must be disjoint, but these indices were repeated: {overlap}")
+
     result = {key: value.detach().clone() for key, value in merged_state.items()}
-    # Keep the complete previous Detect head as the stable template. Only the
-    # current task's final classification rows are inserted below. This folds
-    # the successful head_t1_new_rows_t2 ablation into the normal train path.
-    preserved_detect_tensors = 0
-    for key, value in list(result.items()):
-        if not key.startswith("model.23.") or _is_class_output_key(key):
-            continue
-        if key in old_state and old_state[key].shape == value.shape:
-            result[key] = old_state[key].detach().clone().to(value.device, dtype=value.dtype)
-            preserved_detect_tensors += 1
-    copied_old_rows = 0
-    copied_current_rows = 0
     class_output_keys = 0
+    concatenated_rows = 0
 
     for key, value in list(result.items()):
         if not _is_class_output_key(key):
             continue
         class_output_keys += 1
 
-        if key in old_state:
-            # 旧任务类别通道来自上一轮 merged checkpoint。
-            for idx in learned:
-                if idx < value.shape[0] and idx < old_state[key].shape[0]:
-                    value[idx] = old_state[key][idx].to(value.device, dtype=value.dtype)
-                    copied_old_rows += 1
+        if key not in old_state or key not in new_state:
+            raise KeyError(f"Missing class output tensor {key!r} in old/new checkpoint during head concatenation.")
 
-        if key in new_state:
-            # 当前任务类别通道来自本轮训练后的 checkpoint。
-            for idx in current:
-                if idx < value.shape[0] and idx < new_state[key].shape[0]:
-                    value[idx] = new_state[key][idx].to(value.device, dtype=value.dtype)
-                    copied_current_rows += 1
+        old_value = old_state[key].detach().to(value.device, dtype=value.dtype)
+        new_value = new_state[key].detach().to(value.device, dtype=value.dtype)
+        if old_value.dim() != new_value.dim():
+            raise ValueError(f"Cannot concatenate {key}: old dim {old_value.dim()} != new dim {new_value.dim()}")
+        if old_value.shape[1:] != new_value.shape[1:]:
+            raise ValueError(
+                f"Cannot concatenate {key}: old tail shape {old_value.shape[1:]} != new tail shape {new_value.shape[1:]}"
+            )
 
-        result[key] = value
+        current_rows = []
+        for idx in current:
+            if idx >= new_value.shape[0]:
+                raise ValueError(f"Current class index {idx} is out of range for {key} with shape {tuple(new_value.shape)}")
+            current_rows.append(new_value[idx : idx + 1])
+        if not current_rows:
+            raise ValueError("Current task has no class rows to concatenate.")
+
+        concatenated = torch.cat([old_value, *current_rows], dim=0)
+        if concatenated.shape != value.shape:
+            raise ValueError(
+                f"Concatenated head shape mismatch for {key}: got {tuple(concatenated.shape)}, "
+                f"expected merged model shape {tuple(value.shape)}. "
+                f"old_rows={old_value.shape[0]}, current_rows={len(current_rows)}"
+            )
+
+        result[key] = concatenated
+        concatenated_rows += concatenated.shape[0]
 
     if class_output_keys == 0:
-        raise ValueError("No YOLO cv3 classification output tensors were found during Incremental Head merge.")
-    expected_old_rows = class_output_keys * len(learned)
-    expected_current_rows = class_output_keys * len(current)
-    if copied_old_rows != expected_old_rows or copied_current_rows != expected_current_rows:
+        raise ValueError("No YOLO cv3 classification output tensors were found during Incremental Head concatenation.")
+
+    expected_rows = class_output_keys * (len(learned) + len(current))
+    if concatenated_rows != expected_rows:
         raise ValueError(
-            "Incremental Head merge copied an unexpected number of rows: "
-            f"old={copied_old_rows}/{expected_old_rows}, current={copied_current_rows}/{expected_current_rows}"
+            "Incremental Head concatenated an unexpected number of rows: "
+            f"rows={concatenated_rows}/{expected_rows}"
         )
+
     print(
-        f"[Incremental Head] preserved Detect tensors={preserved_detect_tensors}, old rows={copied_old_rows}, "
-        f"inserted current rows={copied_current_rows}"
+        f"[Incremental Head] physically concatenated class heads: "
+        f"old rows per tensor={len(learned)}, current rows per tensor={len(current)}, tensors={class_output_keys}"
     )
     return result
-
 
 def save_pre_duet_checkpoint(
     trained_checkpoint: str | Path,

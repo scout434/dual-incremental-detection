@@ -3,7 +3,7 @@
 # 实验类型：最小化快速验证
 #
 # 使用方法：
-#   python train_ultralytics_duet.py --config configs/smoke_toy_yolo.yaml
+#   python tools/train.py --config configs/smoke_toy_yolo.yaml
 # ============================================================
 
 experiment:

@@ -418,6 +418,66 @@ def evaluate_section(
     return ratios, details
 
 
+def evaluate_single_tests(
+    items: list[dict[str, Any]],
+    aliases: dict[str, str],
+    *,
+    metric_name: str,
+    device: str | int,
+    imgsz: int | None,
+    split: str,
+    cache: dict[tuple[str, str, str, str], float],
+) -> list[dict[str, Any]]:
+    """Evaluate standalone mAP tests that are not RI/GI ratios."""
+    details: list[dict[str, Any]] = []
+    for item in items:
+        name = str(item.get("name", f"test_{len(details) + 1}"))
+        checkpoint = item.get("checkpoint", "final")
+        data_yaml = item.get("data")
+        if not data_yaml:
+            raise ValueError(f"Standalone test must include data: {item}")
+
+        resolved_checkpoint = resolve_checkpoint(checkpoint, aliases)
+        value = evaluate_checkpoint(
+            resolved_checkpoint,
+            data_yaml,
+            metric_name=metric_name,
+            device=device,
+            imgsz=imgsz,
+            split=item.get("split", split),
+            global_indices=item.get("global_class_indices"),
+            prepare_global_labels=bool(item.get("prepare_global_labels", True)),
+            cache=cache,
+        )
+        details.append(
+            {
+                "name": name,
+                "value": value,
+                "value_percent": value * 100.0,
+                "checkpoint": resolved_checkpoint,
+                "data": str(data_yaml),
+                "metric": metric_name,
+                "note": item.get("note", ""),
+            }
+        )
+    return details
+
+
+def default_final_task_tests(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    """Default status3 extra test: final model directly on the learned T2 dataset."""
+    if "final_task_tests" in plan:
+        return list(plan.get("final_task_tests") or [])
+    return [
+        {
+            "name": "Final_NightSunny_5_7_on_T2",
+            "checkpoint": "final",
+            "data": "data/status3/night_sunny_5_7/data.yaml",
+            "global_class_indices": [4, 5, 6],
+            "note": "Final merged model evaluated directly on the learned T2 dataset.",
+        }
+    ]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="评估 DuET 论文指标：Avg RI、Avg GI、RAI。")
     parser.add_argument("--plan", required=True, type=Path, help="指标评估计划文件，支持 YAML 或 JSON。")
@@ -462,6 +522,15 @@ def main() -> None:
         clamp_to_one=clamp_to_one,
         cache=cache,
     )
+    final_task_tests = evaluate_single_tests(
+        default_final_task_tests(plan),
+        aliases,
+        metric_name=metric_name,
+        device=device,
+        imgsz=imgsz,
+        split=split,
+        cache=cache,
+    )
 
     avg_ri = sum(retention) / len(retention) if retention else 0.0
     avg_gi = sum(generalization) / len(generalization) if generalization else 0.0
@@ -480,6 +549,7 @@ def main() -> None:
         "generalization": generalization,
         "retention_details": retention_details,
         "generalization_details": generalization_details,
+        "final_task_tests": final_task_tests,
         "checkpoint_aliases": aliases,
     }
 
@@ -497,6 +567,10 @@ def main() -> None:
     print(f"Avg RI: {avg_ri:.4f} ({avg_ri * 100.0:.2f}%)")
     print(f"Avg GI: {avg_gi:.4f} ({avg_gi * 100.0:.2f}%)")
     print(f"RAI:    {rai:.4f} ({rai * 100.0:.2f}%)")
+    if final_task_tests:
+        print("Final-task tests:")
+        for item in final_task_tests:
+            print(f"  {item['name']}: {item['value']:.4f} ({item['value_percent']:.2f}%)")
     print(f"已保存: {output}")
 
 
