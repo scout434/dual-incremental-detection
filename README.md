@@ -630,32 +630,32 @@ runs/<task_name>/weights/best.pt
 
 ## 十四、实验结果记录
 
-### 14.1 主实验汇总
+### 14.1 主实验汇总（主要指标）
 
-| 实验 | 训练顺序 | Avg RI (%) | Avg GI (%) | RAI (%) |
-| --- | --- | ---: | ---: | ---: |
-| status1 | VOC[1:10] -> Clipart[11:20] | 86.88 | 44.33 | 65.61 |
-| status3 | Daytime Sunny[1:4] -> Night Sunny[5:7] | 80.15 | 38.15 | 59.15 |
+| 实验 | 训练顺序 | 对应论文表 | Avg RI (%) | Avg GI (%) | RAI (%) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| status1 | VOC[1:10] -> Clipart[11:20] | 论文正文：Table 3  Yolo11n   **or**   论文附录：Table S8. Yolo11n | 86.88 | 44.33 | 65.61 |
+| status3 | Daytime Sunny[1:4] -> Night Sunny[5:7] | 论文正文：Table 2  Yolo11n   **or**   论文附录：Table S10. Yolo11n | 80.15 | 38.15 | 59.15 |
 
 ### 14.2 status1 过程性指标
 
-| 指标 | 分子 mAP50 | 分母 mAP50 | 比例 (%) |
-| --- | ---: | ---: | ---: |
-| RI_VOC_1_10 | 0.7200 | 0.8288 | 86.88 |
-| GI_VOC_11_20 | 0.1415 | 0.7968 | 17.76 |
-| GI_Clipart_1_10 | 0.2795 | 0.3942 | 70.91 |
+| 指标 | 对应表格 | 分子 mAP50 | 分母 mAP50 | 比例 (%) |
+| --- | ---: | ---: | ---: | ---: |
+| RI_VOC_1_10 | 论文附录：Table S8. Yolo11n | 0.7200（old voc1_10） | 0.8288 | 86.88 |
+| GI_VOC_11_20 | 论文附录：Table S8. Yolo11n | 0.1415 | 0.7968 | 17.76 |
+| GI_Clipart_1_10 | 论文附录：Table S8. Yolo11n | 0.2795 | 0.3942 | 70.91 |
 
 ### 14.3 status3 过程性指标
 
-| 指标 | 分子 mAP50 | 分母 mAP50 | 比例 (%) |
-| --- | ---: | ---: | ---: |
-| RI_DaytimeSunny_1_4_after_T2 | 0.3731 | 0.4655 | 80.15 |
-| GI_DaytimeSunny_5_7_at_T2 | 0.0798 | 0.5150 | 15.49 |
-| GI_NightSunny_1_4_at_T2 | 0.2802 | 0.4608 | 60.80 |
+| 指标 | 对应表格 | 分子 mAP50 | 分母 mAP50 | 比例 (%) |
+| --- | ---: | ---: | ---: | ---: |
+| RI_DaytimeSunny_1_4_after_T2 | 论文附录：Table S10. Yolo11n | 0.3731（old daytime_s1_4） | 0.4655 | 80.15 |
+| GI_DaytimeSunny_5_7_at_T2 | 论文附录：Table S10. Yolo11n | 0.0798 | 0.5150 | 15.49 |
+| GI_NightSunny_1_4_at_T2 | 论文附录：Table s10. Yolo11n | 0.2802 | 0.4608 | 60.80 |
 
 ### 14.4 消融实验记录
 
-当前工作区中 `01_seqft` 到 `05_full` 均已有 `metrics.json`；`00_no_seqft` 目录存在，但未发现对应评估指标文件，因此暂记为未评估。
+当前工作区中 `01_seqft` 到 `05_full` 均已有 `metrics.json`；`00_no_seqft` 目录存在，但未发现对应评估指标文件，因此暂记为未评估。**论文正文：对应表格 Table 4**
 
 | 消融组 | 组件设置 | Avg RI (%) | Avg GI (%) | RAI (%) |
 | --- | --- | ---: | ---: | ---: |
