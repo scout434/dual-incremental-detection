@@ -29,6 +29,8 @@ BASE_EVAL_PLAN = CONFIG_DIR / "eval.yaml"
 
 
 ABLATIONS: dict[str, dict[str, Any]] = {
+    # 每个消融项只改动少量开关，其他训练参数继承 train_t2_only.yaml。
+    # 这样可以保证不同消融之间的差异只来自被研究的模块，而不是配置漂移。
     "00_no_seqft": {
         "title": "No Seq FT / No Incremental Head / No DuET / No losses",
         "seq_ft": False,
@@ -81,15 +83,18 @@ ABLATIONS: dict[str, dict[str, Any]] = {
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
+    """读取 YAML 配置文件。"""
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def write_yaml(path: Path, data: dict[str, Any]) -> None:
+    """写出 YAML，并自动创建父目录。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
 
 def display_path(path: Path) -> str:
+    """把路径显示成项目相对路径，方便复制到 README 或命令行。"""
     try:
         return path.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
@@ -97,6 +102,11 @@ def display_path(path: Path) -> str:
 
 
 def build_train_config(name: str) -> tuple[dict[str, Any], Path]:
+    """根据消融名生成对应的训练 YAML 内容。
+
+    基础配置来自 train_t2_only.yaml；本函数只覆盖 output_dir、resume 和 duet
+    相关开关，使每个消融实验都能单独运行、单独保存。
+    """
     spec = ABLATIONS[name]
     cfg = copy.deepcopy(load_yaml(BASE_T2_CONFIG))
     output_dir = f"output/status1/ablations/{name}"
@@ -115,9 +125,11 @@ def build_train_config(name: str) -> tuple[dict[str, Any], Path]:
     cfg.setdefault("resume", {})
     cfg["resume"]["start_task"] = 2
     if spec["seq_ft"]:
+        # Seq FT 消融从任务1权重继续训练任务2。
         cfg["resume"]["previous_checkpoint"] = base_t1_checkpoint
         cfg["resume"].pop("allow_full_head_previous", None)
     else:
+        # No Seq FT 使用完整 reference head 作为起点，用于观察去掉顺序微调后的影响。
         cfg["resume"]["previous_checkpoint"] = f"{output_dir}/reference_full_head.pt"
         cfg["resume"]["allow_full_head_previous"] = True
 
@@ -133,6 +145,7 @@ def build_train_config(name: str) -> tuple[dict[str, Any], Path]:
 
 
 def build_eval_plan(name: str, train_cfg: dict[str, Any]) -> tuple[dict[str, Any], Path]:
+    """为某个消融实验生成对应评估 plan。"""
     output_dir = train_cfg["experiment"]["output_dir"]
     plan = copy.deepcopy(load_yaml(BASE_EVAL_PLAN))
     base_t1_checkpoint = train_cfg.get("resume", {}).get("previous_checkpoint")
@@ -154,6 +167,7 @@ def build_eval_plan(name: str, train_cfg: dict[str, Any]) -> tuple[dict[str, Any
 
 
 def materialize(name: str) -> tuple[Path, Path]:
+    """落盘单个消融实验的训练配置、评估配置和索引文件。"""
     train_cfg, train_cfg_path = build_train_config(name)
     eval_plan, eval_plan_path = build_eval_plan(name, train_cfg)
     write_yaml(train_cfg_path, train_cfg)
@@ -181,6 +195,7 @@ def materialize(name: str) -> tuple[Path, Path]:
 
 
 def main() -> None:
+    """命令行入口：支持只生成配置、跑单个消融或按顺序跑全部消融。"""
     parser = argparse.ArgumentParser(description="Run or materialize status1 ablation configs.")
     parser.add_argument("--name", choices=sorted(ABLATIONS), help="Ablation name to run.")
     parser.add_argument("--all", action="store_true", help="Run all ablations in table order.")
@@ -201,6 +216,7 @@ def main() -> None:
 
         from train_duet import main as train_main
 
+        # legacy 训练脚本内部按项目根目录解析相对路径，因此运行前切回根目录。
         os.chdir(PROJECT_ROOT)
         train_main(train_cfg_path)
 

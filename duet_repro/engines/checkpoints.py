@@ -11,6 +11,11 @@ from duet_repro.modeling.heads import is_class_output_key
 
 
 def project_relative_value(value, *, project_root: Path):
+    """把配置/历史记录里的路径转换成项目相对路径。
+
+    训练输出会写入 JSON/YAML；如果里面保存绝对路径，换机器后就很难复现。
+    这里递归处理 dict/list/Path/string，让 manifest 尽量可移植。
+    """
     if isinstance(value, dict):
         return {key: project_relative_value(item, project_root=project_root) for key, item in value.items()}
     if isinstance(value, list):
@@ -21,6 +26,8 @@ def project_relative_value(value, *, project_root: Path):
         path = value
     elif isinstance(value, str):
         raw = value.replace("\\", "/")
+        # 兼容历史配置里出现的 status*/output 或 output/status* 路径写法，
+        # 统一折叠成 output/status*/...，方便 README 和评估脚本引用。
         for marker, prefix in (
             ("status1/output/", project_root / "output" / "status1"),
             ("status3/output/", project_root / "output" / "status3"),
@@ -47,6 +54,11 @@ def write_experiment_state(
     reference_ckpt: str | Path,
     latest_ckpt: str | Path | None,
 ) -> None:
+    """写出一次训练的配置、历史和评估清单。
+
+    training_history.json 记录每个任务的训练结果；eval_manifest.json 给评估脚本
+    和人工检查使用；resolved_config.yaml 保存最终展开后的训练配置。
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     project_root = Path.cwd().resolve()
     portable_history = project_relative_value(history, project_root=project_root)
@@ -69,6 +81,7 @@ def write_experiment_state(
         "tasks": portable_cfg.get("tasks", []),
         "history": portable_history,
         "metric_note": {
+            # 这里把论文指标口径直接写入 manifest，避免之后只看 JSON 时忘记含义。
             "Avg_RI": "Final-task mAP on old classes / mAP when those classes were first learned.",
             "Avg_GI": "Merged-checkpoint mAP on unseen class/domain slices / reference mAP for those unseen slices.",
             "RAI": "(Avg_RI + Avg_GI) / 2.",
@@ -86,6 +99,7 @@ def write_experiment_state(
 
 
 def resolve_config_path(config_path: str | Path, *, script_dir: Path, project_root: Path) -> Path:
+    """解析训练配置路径，兼容当前目录、脚本目录和项目根目录。"""
     path = Path(config_path)
     if path.is_absolute():
         return path
@@ -97,6 +111,7 @@ def resolve_config_path(config_path: str | Path, *, script_dir: Path, project_ro
 
 
 def resolve_project_path(path: str | Path, *, project_root: Path) -> Path:
+    """解析项目内路径；不存在时仍返回项目根目录下的候选路径。"""
     path = Path(path)
     if path.is_absolute():
         return path
@@ -115,6 +130,11 @@ def validate_resume_checkpoint(
     total_classes: int | None = None,
     allow_full_head: bool = False,
 ) -> Path:
+    """校验断点续训权重的检测头类别数是否和当前任务匹配。
+
+    增量训练时最容易拿错 checkpoint：例如用 20 类完整 head 去续 10 类阶段，
+    或反过来。这里读取 cv3 分类输出层行数，提前报错，比训练到中途炸掉更好。
+    """
     checkpoint = resolve_project_path(checkpoint, project_root=project_root)
     if not checkpoint.exists():
         raise FileNotFoundError(f"Resume checkpoint does not exist: {checkpoint}")

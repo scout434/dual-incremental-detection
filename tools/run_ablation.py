@@ -13,6 +13,11 @@ from duet_repro.experiments.registry import get_scenario
 
 
 def parse_args() -> argparse.Namespace:
+    """解析 status1 消融实验入口参数。
+
+    消融实验支持两种模式：--name 一次只跑一个消融，--all 按表格顺序全跑。
+    --materialize-only 只生成对应 YAML，适合先检查配置是否正确。
+    """
     parser = argparse.ArgumentParser(description="Unified status1 ablation entrypoint.")
     parser.add_argument("--scenario", default="status1", choices=["status1"])
     parser.add_argument("--name", help="Run one ablation, for example 03_seqft_incremental_head_duet.")
@@ -29,6 +34,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     extra_args: list[str] = []
+
+    # 这里保留 legacy 消融脚本的参数格式，统一入口只做参数校验和转发。
     if args.name:
         extra_args.extend(["--name", args.name])
     if args.all:

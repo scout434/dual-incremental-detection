@@ -14,7 +14,10 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 支持的图片后缀，用于从目录型 split 中递归收集图片。
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+
+# status1 使用的 VOC 20 类全局顺序。不同切片会从这个全局顺序中取子集。
 VOC_CLASS_NAMES = [
     "bicycle",
     "bird",
@@ -41,16 +44,19 @@ VOC_TRAIN_SPLITS = ["train2012", "train2007", "val2012", "val2007"]
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
+    """读取 YAML；空文件按空字典处理。"""
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
 def reset_dir(path: Path) -> None:
+    """删除并重建目录，用于保证每次数据准备没有旧文件残留。"""
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
 
 
 def project_path(value: str | Path) -> Path:
+    """把配置中的相对路径解释为项目根目录下的路径。"""
     path = Path(value)
     if path.is_absolute():
         return path
@@ -58,6 +64,7 @@ def project_path(value: str | Path) -> Path:
 
 
 def split_value_to_list(value: Any) -> list[str]:
+    """把 data.yaml 的 train/val/test 字段统一成列表。"""
     if value is None:
         return []
     if isinstance(value, list):
@@ -66,6 +73,11 @@ def split_value_to_list(value: Any) -> list[str]:
 
 
 def find_zip(zip_root: Path, task: dict[str, Any]) -> Path:
+    """根据任务配置在下载目录中寻找对应 zip。
+
+    支持 task["zip"]、task["aliases"] 和默认的 <task_name>.zip 三种写法，
+    方便同一份脚本兼容不同数据集压缩包命名。
+    """
     candidates = []
     if "zip" in task:
         candidates.append(str(task["zip"]))
@@ -83,6 +95,7 @@ def find_zip(zip_root: Path, task: dict[str, Any]) -> Path:
 
 
 def extract_zip(zip_path: Path, extract_root: Path, overwrite: bool) -> Path:
+    """解压普通 YOLO 数据集 zip，并用 .extract_ok 标记避免重复解压。"""
     target = extract_root / zip_path.stem
     marker = target / ".extract_ok"
     if marker.exists() and not overwrite:
@@ -99,6 +112,11 @@ def extract_zip(zip_path: Path, extract_root: Path, overwrite: bool) -> Path:
 
 
 def find_dataset_root(extracted: Path, task: dict[str, Any], data_yaml_name: str) -> Path:
+    """在解压目录中定位真正的 YOLO 数据集根目录。
+
+    有些 zip 会多套一层目录，因此不能假设 extract_root/zipstem 就是数据集根；
+    这里优先使用显式 dataset_root，否则递归寻找同时包含 images/labels 的目录。
+    """
     if task.get("dataset_root"):
         root = Path(task["dataset_root"])
         if not root.is_absolute():
@@ -120,6 +138,7 @@ def find_dataset_root(extracted: Path, task: dict[str, Any], data_yaml_name: str
 
 
 def resolve_split_paths(dataset_root: Path, data_cfg: dict[str, Any], split: str) -> list[Path]:
+    """把 data.yaml 的某个 split 解析成实际图片来源路径。"""
     root = Path(data_cfg.get("path", dataset_root))
     if not root.is_absolute():
         root = dataset_root / root
@@ -133,6 +152,7 @@ def resolve_split_paths(dataset_root: Path, data_cfg: dict[str, Any], split: str
 
 
 def iter_images(source: Path) -> list[Path]:
+    """从目录或 txt 列表中枚举图片路径。"""
     if source.is_file():
         lines = [line.strip() for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
         return [Path(line) if Path(line).is_absolute() else source.parent / line for line in lines]
@@ -142,6 +162,7 @@ def iter_images(source: Path) -> list[Path]:
 
 
 def infer_label_path(image_path: Path) -> Path:
+    """按 YOLO 目录约定从图片路径推断标签 txt 路径。"""
     parts = list(image_path.parts)
     for index, part in enumerate(parts):
         if part == "images":
@@ -151,6 +172,7 @@ def infer_label_path(image_path: Path) -> Path:
 
 
 def link_or_copy(src: Path, dst: Path, copy_files: bool) -> None:
+    """准备图片文件：Linux 优先软链接，Windows 或失败时复制。"""
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists() or dst.is_symlink():
         dst.unlink()
@@ -166,6 +188,7 @@ def link_or_copy(src: Path, dst: Path, copy_files: bool) -> None:
 
 
 def normalize_names(names: Any, class_indices: list[int]) -> dict[int, str]:
+    """规范化 data.yaml 的 names 字段。"""
     if names is None:
         return {idx: f"class_{idx + 1}" for idx in range(len(class_indices))}
     if isinstance(names, list):
@@ -174,6 +197,7 @@ def normalize_names(names: Any, class_indices: list[int]) -> dict[int, str]:
 
 
 def write_dataset_yaml(path: Path, root: Path, names: dict[int, str], class_indices: list[int]) -> None:
+    """写出标准 YOLO data.yaml，并附带全局类别索引用于后续评估。"""
     cfg = {
         "path": str(root.resolve()),
         "train": "images/train",
@@ -188,6 +212,7 @@ def write_dataset_yaml(path: Path, root: Path, names: dict[int, str], class_indi
 
 
 def yolo_box(width: int, height: int, xyxy: list[float]) -> tuple[float, float, float, float]:
+    """把 VOC 的 xyxy 绝对坐标转换成 YOLO 归一化 xywh。"""
     xmin, xmax, ymin, ymax = xyxy
     x = ((xmin + xmax) / 2.0 - 1.0) / width
     y = ((ymin + ymax) / 2.0 - 1.0) / height
@@ -206,6 +231,11 @@ def normalize_yolo_dataset(
     val_split: str,
     names_override: Any = None,
 ) -> tuple[int, int, int, int]:
+    """把一个普通 YOLO 数据集规范化到指定输出目录。
+
+    该函数复制/链接图片、同步标签、写 data.yaml，并统计训练/验证图片数和实例数。
+    class_indices 用于记录该数据集在全局类别空间里的类别编号。
+    """
     data_yaml = dataset_root / data_yaml_name
     data_cfg = read_yaml(data_yaml) if data_yaml.exists() else {}
     names = normalize_names(names_override if names_override is not None else data_cfg.get("names"), class_indices)
@@ -242,6 +272,7 @@ def normalize_yolo_dataset(
 
 
 def update_yaml_data_paths(config_path: Path, data_paths: dict[str, Path]) -> bool:
+    """把训练/评估配置中指向旧 data.yaml 的路径替换为新生成路径。"""
     if not config_path.exists():
         return False
     cfg = read_yaml(config_path)
@@ -276,6 +307,7 @@ def update_yaml_data_paths(config_path: Path, data_paths: dict[str, Path]) -> bo
 
 
 def expand_config_paths(items: list[Any]) -> list[Path]:
+    """展开 update_configs 中的文件路径，支持通配符。"""
     paths: list[Path] = []
     for item in items:
         raw = str(item)
@@ -288,6 +320,7 @@ def expand_config_paths(items: list[Any]) -> list[Path]:
 
 
 def collect_zip_file_configs(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """收集 plan 中声明的数据压缩包配置。"""
     files: dict[str, dict[str, Any]] = {}
     for key, value in plan.items():
         if key == "datasets" and isinstance(value, dict):
@@ -306,6 +339,7 @@ def collect_zip_file_configs(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def collect_zip_tasks(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    """收集 plan 中所有需要生成切片的任务配置。"""
     tasks: list[dict[str, Any]] = []
     if isinstance(plan.get("tasks"), list):
         tasks.extend(dict(task) for task in plan["tasks"])
@@ -316,6 +350,7 @@ def collect_zip_tasks(plan: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def resolve_task_dataset(plan: dict[str, Any], task: dict[str, Any], file_configs: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """把任务级配置和数据集级共享配置合并成最终任务配置。"""
     resolved = dict(task)
     dataset_name = task.get("dataset") or task.get("data_file") or task.get("file") or task.get("name")
     if dataset_name is None or dataset_name not in file_configs:
@@ -334,6 +369,7 @@ def resolve_task_dataset(plan: dict[str, Any], task: dict[str, Any], file_config
 
 
 def print_plan_slice_summary(name: str, root: Path, train_images: int, train_instances: int, val_images: int, val_instances: int) -> None:
+    """打印数据切片统计，便于准备完成后快速核对规模。"""
     print(
         f"[{name}] root={root} train_images={train_images} train_instances={train_instances} "
         f"val_images={val_images} val_instances={val_instances}"
@@ -341,6 +377,7 @@ def print_plan_slice_summary(name: str, root: Path, train_images: int, train_ins
 
 
 def extract_many_zips(zip_root: Path, zip_names: list[str], target_root: Path) -> None:
+    """批量解压 zip；遇到损坏成员时跳过并记录，不中断整个流程。"""
     target_root.mkdir(parents=True, exist_ok=True)
     for name in zip_names:
         zip_path = zip_root / name
@@ -373,6 +410,7 @@ def extract_many_zips(zip_root: Path, zip_names: list[str], target_root: Path) -
 
 
 def prepare_voc_full(zip_root: Path, voc_raw_root: Path, voc_root: Path, voc_zips: list[str] | None = None) -> None:
+    """解压 VOC2007/VOC2012 原始数据。"""
     zips = voc_zips or [
         "VOCtrainval_06-Nov-2007.zip",
         "VOCtest_06-Nov-2007.zip",
@@ -383,10 +421,12 @@ def prepare_voc_full(zip_root: Path, voc_raw_root: Path, voc_root: Path, voc_zip
 
 
 def prepare_clipart_full(zip_root: Path, clipart_root: Path, clipart_zip: str = "clipart.zip") -> None:
+    """解压 Clipart 数据集压缩包。"""
     extract_many_zips(zip_root, [clipart_zip], clipart_root)
 
 
 def find_voc_year_root(voc_raw_root: Path, year: str) -> Path:
+    """定位 VOC 指定年份的数据根目录。"""
     candidates = [
         voc_raw_root / "VOCdevkit" / f"VOC{year}",
         voc_raw_root / f"VOC{year}",
@@ -399,6 +439,7 @@ def find_voc_year_root(voc_raw_root: Path, year: str) -> Path:
 
 
 def parse_voc_split(split: str) -> tuple[str, str]:
+    """解析 VOC split 名称，返回年份和 split 文件名。"""
     for year in ("2007", "2012"):
         if split.endswith(year):
             return year, split[: -len(year)]
@@ -412,6 +453,7 @@ def add_voc_slice_records(
     target_split: str,
     class_indices: list[int],
 ) -> tuple[int, int]:
+    """从 VOC XML 标注中生成某个类别切片的 YOLO 图片和标签。"""
     year, split_name = parse_voc_split(source_split)
     year_root = find_voc_year_root(voc_root.parent / "VOC_raw", year)
     split_file = year_root / "ImageSets" / "Main" / f"{split_name}.txt"
@@ -456,6 +498,7 @@ def add_voc_slice_records(
 
 
 def find_clipart_dataset_root(clipart_root: Path) -> Path:
+    """寻找 YOLO 格式 Clipart 数据集根目录。"""
     candidates = []
     for yaml_path in clipart_root.rglob("data.yaml"):
         root = yaml_path.parent
@@ -469,6 +512,7 @@ def find_clipart_dataset_root(clipart_root: Path) -> Path:
 
 
 def find_clipart_voc_root(clipart_root: Path) -> Path:
+    """寻找 VOC XML 格式 Clipart 数据集根目录。"""
     candidates = []
     for path in [clipart_root, *clipart_root.rglob("*")]:
         if path.is_dir() and (path / "Annotations").exists() and (path / "JPEGImages").exists():
@@ -479,6 +523,7 @@ def find_clipart_voc_root(clipart_root: Path) -> Path:
 
 
 def split_file_candidates(root: Path, split: str) -> list[Path]:
+    """列出一个 split 文件可能出现的位置。"""
     return [
         root / "ImageSets" / "Main" / f"{split}.txt",
         root / "ImageSets" / f"{split}.txt",
@@ -487,6 +532,7 @@ def split_file_candidates(root: Path, split: str) -> list[Path]:
 
 
 def read_voc_image_ids(root: Path, split: str) -> list[str]:
+    """读取 VOC/Clipart ImageSets 中的图片 id 列表。"""
     for split_file in split_file_candidates(root, split):
         if split_file.exists():
             return [line.strip().split()[0] for line in split_file.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -494,6 +540,7 @@ def read_voc_image_ids(root: Path, split: str) -> list[str]:
 
 
 def find_image_by_id(root: Path, image_id: str) -> Path | None:
+    """按图片 id 在 JPEGImages 中寻找实际图片文件。"""
     image_dir = root / "JPEGImages"
     for suffix in (".jpg", ".jpeg", ".png", ".bmp", ".webp"):
         candidate = image_dir / f"{image_id}{suffix}"
@@ -511,6 +558,7 @@ def add_voc_style_slice_records(
     class_indices: list[int],
     class_names: list[str],
 ) -> tuple[int, int]:
+    """处理 VOC 风格 XML 标注数据集的切片生成。"""
     local_index = {global_id: local_id for local_id, global_id in enumerate(class_indices)}
     keep = set(class_indices)
     image_count = 0
@@ -556,6 +604,7 @@ def add_clipart_slice_records(
     target_split: str,
     class_indices: list[int],
 ) -> tuple[int, int]:
+    """处理 Clipart 切片；优先按 YOLO 格式，失败时回退到 VOC XML 格式。"""
     try:
         dataset_root = find_clipart_dataset_root(clipart_root)
     except FileNotFoundError:
@@ -606,11 +655,13 @@ def add_clipart_slice_records(
 
 
 def write_slice_yaml(path: Path, root: Path, class_indices: list[int]) -> None:
+    """为某个类别切片写出 YOLO data.yaml。"""
     names = {local_id: VOC_CLASS_NAMES[global_id] for local_id, global_id in enumerate(class_indices)}
     write_dataset_yaml(path, root, names, class_indices)
 
 
 def print_dir_summary(path: Path) -> None:
+    """打印切片目录中的图片和标签数量。"""
     train_images = len(list((path / "images" / "train").glob("*"))) if (path / "images" / "train").exists() else 0
     val_images = len(list((path / "images" / "val").glob("*"))) if (path / "images" / "val").exists() else 0
     train_labels = len(list((path / "labels" / "train").glob("*.txt"))) if (path / "labels" / "train").exists() else 0
@@ -619,6 +670,7 @@ def print_dir_summary(path: Path) -> None:
 
 
 def prepare_voc_clipart_plan(plan: dict[str, Any]) -> None:
+    """准备 status1 的 VOC/Clipart 双增量数据切片。"""
 
     data_root = project_path(plan.get("data_root", "data"))
     zip_root = project_path(plan.get("zip_root", data_root / "downloads"))
@@ -685,6 +737,7 @@ def prepare_voc_clipart_plan(plan: dict[str, Any]) -> None:
 
 
 def prepare_zip_plan(plan: dict[str, Any], copy_files: bool, overwrite: bool, update_configs: bool) -> None:
+    """准备通用 YOLO zip 数据集切片。"""
     zip_root = project_path(plan["zip_root"])
     output_root = project_path(plan["output_root"])
     extract_root = project_path(plan.get("extract_root", output_root.parent / "_raw_extract"))
@@ -730,6 +783,7 @@ def prepare_zip_plan(plan: dict[str, Any], copy_files: bool, overwrite: bool, up
 
 
 def collect_named_zip_configs(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """收集 voc_zip_slices 模式下以名称索引的 zip 配置。"""
     zips: dict[str, dict[str, Any]] = {}
     for key, value in plan.items():
         if key.endswith("_zip") and isinstance(value, (str, Path)):
@@ -741,6 +795,7 @@ def collect_named_zip_configs(plan: dict[str, Any]) -> dict[str, dict[str, Any]]
 
 
 def find_voc_root(extracted: Path, configured_root: Any = None) -> Path:
+    """在解压目录中寻找 VOC 风格数据根目录。"""
     if configured_root:
         root = Path(str(configured_root))
         if not root.is_absolute():
@@ -758,6 +813,7 @@ def find_voc_root(extracted: Path, configured_root: Any = None) -> Path:
 
 
 def image_size(image_path: Path) -> tuple[int, int]:
+    """不依赖额外库读取 PNG/JPEG 图片尺寸。"""
     data = image_path.read_bytes()
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         width = int.from_bytes(data[16:20], "big")
@@ -780,6 +836,7 @@ def image_size(image_path: Path) -> tuple[int, int]:
 
 
 def parse_voc_xml_lines(xml_path: Path, image_path: Path, class_names: list[str], keep_indices: list[int]) -> list[str]:
+    """把单个 VOC XML 标注文件转换成 YOLO 标签行。"""
     root = ET.parse(xml_path).getroot()
     size = root.find("size")
     if size is not None:
@@ -811,6 +868,7 @@ def build_voc_zip_slice(
     class_names: list[str],
     copy_files: bool,
 ) -> tuple[int, int, int, int]:
+    """从一个 VOC 根目录构建指定类别集合的训练/验证切片。"""
     class_indices = [int(index) for index in task["class_indices"]]
     reset_dir(out_root)
     counts = {"train_images": 0, "train_instances": 0, "val_images": 0, "val_instances": 0}
@@ -845,6 +903,7 @@ def build_voc_zip_slice(
 
 
 def prepare_voc_zip_slices_plan(plan: dict[str, Any], copy_files: bool, overwrite: bool, update_configs: bool) -> None:
+    """准备 voc_zip_slices 类型 plan 声明的 VOC 切片。"""
     zip_root = project_path(plan["zip_root"])
     data_root = project_path(plan.get("data_root", "data"))
     output_root = project_path(plan.get("output_root", data_root))
@@ -888,6 +947,7 @@ def prepare_voc_zip_slices_plan(plan: dict[str, Any], copy_files: bool, overwrit
 
 
 def main() -> None:
+    """命令行入口：读取 plan 并分发到对应数据准备流程。"""
     parser = argparse.ArgumentParser(description="Config-driven data preparation.")
     parser.add_argument("--plan", required=True, help="YAML file describing how to split zip datasets.")
     parser.add_argument("--copy-files", action="store_true", help="Copy images instead of creating symlinks.")
